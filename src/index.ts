@@ -43,6 +43,17 @@ export {
 	jaccardSimilarity,
 	normalizeText,
 } from './lib/dedupe.js'
+// Entity extraction
+export type { EntityResult, ExtractedEntity } from './lib/entity-extract.js'
+export {
+	extractEntities,
+	extractHandles,
+	extractHashtags,
+	extractRepeatedTerms,
+	extractSubreddits,
+	filterStopwords,
+	rankEntities,
+} from './lib/entity-extract.js'
 export type { EvalCluster, EvalItem } from './lib/eval-metrics.js'
 // Eval metrics
 export {
