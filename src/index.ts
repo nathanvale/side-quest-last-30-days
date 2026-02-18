@@ -88,6 +88,23 @@ export {
 	renderFullReport,
 	writeOutputs,
 } from './lib/render.js'
+export { orchestrate } from './lib/retrieval/orchestrator.js'
+export type { QueryBudget } from './lib/retrieval/query-policy.js'
+export { getQueryBudget } from './lib/retrieval/query-policy.js'
+// Retrieval contracts
+export type {
+	AdapterSearchConfig,
+	MergePolicy,
+	OrchestratorConfig,
+	PhaseResult,
+	SearchAdapter,
+	SearchItem,
+	SourceType,
+} from './lib/retrieval/types.js'
+export {
+	defaultMergePolicy,
+	defaultOrchestratorConfig,
+} from './lib/retrieval/types.js'
 // Schema types
 export type {
 	Comment,
