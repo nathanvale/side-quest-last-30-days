@@ -1056,6 +1056,27 @@ describe('cli', () => {
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--phase2-budget must be an integer')
 	})
+
+	test('--include-youtube flag is accepted in mock mode', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json', '--include-youtube'])
+		expect(result.exitCode).toBe(0)
+		const output = JSON.parse(new TextDecoder().decode(result.stdout)) as Record<string, unknown>
+		expect(Array.isArray(output.youtube)).toBe(true)
+	})
+
+	test('YouTube items appear in JSON output with --include-youtube --mock', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json', '--include-youtube'])
+		expect(result.exitCode).toBe(0)
+		const output = JSON.parse(new TextDecoder().decode(result.stdout)) as { youtube: unknown[] }
+		expect(output.youtube.length).toBeGreaterThan(0)
+	})
+
+	test('no youtube field in JSON output without --include-youtube', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json'])
+		expect(result.exitCode).toBe(0)
+		const output = JSON.parse(new TextDecoder().decode(result.stdout)) as Record<string, unknown>
+		expect(output.youtube).toBeUndefined()
+	})
 })
 
 // ---------------------------------------------------------------------------

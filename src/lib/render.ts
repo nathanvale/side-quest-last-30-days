@@ -21,8 +21,16 @@ function assessDataFreshness(report: Report) {
 		(w) => w.date && w.date >= report.range_from,
 	).length
 
-	const totalRecent = redditRecent + xRecent + webRecent
-	const totalItems = report.reddit.length + report.x.length + report.web.length
+	const youtubeRecent = report.youtube.filter(
+		(y) => y.date && y.date >= report.range_from,
+	).length
+
+	const totalRecent = redditRecent + xRecent + webRecent + youtubeRecent
+	const totalItems =
+		report.reddit.length +
+		report.x.length +
+		report.web.length +
+		report.youtube.length
 
 	return {
 		redditRecent,
@@ -215,6 +223,32 @@ export function renderCompact(
 		}
 	}
 
+	// YouTube items
+	if (report.youtube_error) {
+		lines.push(
+			'### YouTube Videos',
+			'',
+			`**ERROR:** ${report.youtube_error}`,
+			'',
+		)
+	} else if (report.youtube.length > 0) {
+		lines.push('### YouTube Videos', '')
+		for (const item of report.youtube.slice(0, limit)) {
+			const dateStr = item.date ? ` (${item.date})` : ' (date unknown)'
+			const confStr =
+				item.date_confidence !== 'high' ? ` [date:${item.date_confidence}]` : ''
+			const engStr = ` [${item.views.toLocaleString()}views, ${item.likes.toLocaleString()}likes]`
+
+			lines.push(
+				`**${item.id}** [YT] (score:${item.score}) ${item.channel}${dateStr}${confStr}${engStr}`,
+			)
+			lines.push(`  ${item.title}`)
+			lines.push(`  ${item.url}`)
+			lines.push(`  *${item.why_relevant}*`)
+			lines.push('')
+		}
+	}
+
 	return lines.join('\n')
 }
 
@@ -241,6 +275,14 @@ export function renderContextSnippet(report: Report): string {
 		allItems.push([
 			item.score,
 			'Web',
+			`${item.title.slice(0, 50)}...`,
+			item.url,
+		])
+	}
+	for (const item of report.youtube.slice(0, 5)) {
+		allItems.push([
+			item.score,
+			'YouTube',
 			`${item.title.slice(0, 50)}...`,
 			item.url,
 		])
@@ -350,6 +392,26 @@ export function renderFullReport(report: Report): string {
 			lines.push(`- **Relevance:** ${item.why_relevant}`)
 			lines.push('')
 			lines.push(`> ${item.snippet}`)
+			lines.push('')
+		}
+	}
+
+	if (report.youtube.length > 0) {
+		lines.push('## YouTube Videos')
+		lines.push('')
+		for (const item of report.youtube) {
+			lines.push(`### ${item.id}: ${item.title}`)
+			lines.push('')
+			lines.push(`- **Channel:** ${item.channel}`)
+			lines.push(`- **URL:** ${item.url}`)
+			lines.push(
+				`- **Date:** ${item.date ?? 'Unknown'} (confidence: ${item.date_confidence})`,
+			)
+			lines.push(`- **Score:** ${item.score}/100`)
+			lines.push(`- **Relevance:** ${item.why_relevant}`)
+			lines.push(
+				`- **Engagement:** ${item.views.toLocaleString()} views, ${item.likes.toLocaleString()} likes, ${item.comments.toLocaleString()} comments`,
+			)
 			lines.push('')
 		}
 	}

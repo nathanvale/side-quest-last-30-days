@@ -45,6 +45,13 @@ const PROCESSING_MESSAGES = [
 	'Removing duplicates...',
 ]
 
+const YOUTUBE_MESSAGES = [
+	'Searching YouTube for videos...',
+	'Finding relevant video content...',
+	'Scanning YouTube uploads...',
+	'Discovering video discussions...',
+]
+
 const WEB_ONLY_MESSAGES = [
 	'Searching the web...',
 	'Finding blogs and docs...',
@@ -166,6 +173,18 @@ export class ProgressDisplay {
 
 	endX(count: number): void {
 		this.spinner?.stop(`${CYAN}X${RESET} Found ${count} posts`)
+	}
+
+	/** Start YouTube search phase. */
+	startYouTube(): void {
+		const msg = pick(YOUTUBE_MESSAGES)
+		this.spinner = new Spinner(`${RED}YouTube${RESET} ${msg}`, RED)
+		this.spinner.start()
+	}
+
+	/** End YouTube search phase. */
+	endYouTube(count: number): void {
+		this.spinner?.stop(`${RED}YouTube${RESET} Found ${count} videos`)
 	}
 
 	startProcessing(): void {
