@@ -1,0 +1,81 @@
+{
+	"$id": "https://side-quest.dev/schemas/l30d/data-quality.v1.json",
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "L30D Data Quality v1",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"schema_version",
+		"computation_version",
+		"total_items",
+		"dated_items",
+		"undated_items",
+		"in_range_items",
+		"fresh_72h_items",
+		"trends_total",
+		"multi_source_trends",
+		"citations_checked",
+		"citations_resolvable",
+		"rate_limited_source_count",
+		"partial_source_failure_count",
+		"stale_cache_used",
+		"stale_cache_age_hours",
+		"execution_health_score",
+		"ratios",
+		"quality_score",
+		"quality_grade"
+	],
+	"properties": {
+		"schema_version": { "const": "data_quality.v1" },
+		"computation_version": { "const": "dq-v1" },
+		"total_items": { "type": "integer", "minimum": 0 },
+		"dated_items": { "type": "integer", "minimum": 0 },
+		"undated_items": { "type": "integer", "minimum": 0 },
+		"in_range_items": { "type": "integer", "minimum": 0 },
+		"fresh_72h_items": { "type": "integer", "minimum": 0 },
+		"trends_total": { "type": "integer", "minimum": 0 },
+		"multi_source_trends": { "type": "integer", "minimum": 0 },
+		"citations_checked": { "type": "integer", "minimum": 0 },
+		"citations_resolvable": { "type": "integer", "minimum": 0 },
+		"rate_limited_source_count": { "type": "integer", "minimum": 0 },
+		"partial_source_failure_count": { "type": "integer", "minimum": 0 },
+		"stale_cache_used": { "type": "boolean" },
+		"stale_cache_age_hours": {
+			"oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }]
+		},
+		"execution_health_score": {
+			"type": "integer",
+			"minimum": 0,
+			"maximum": 100
+		},
+		"ratios": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"dated_ratio",
+				"in_range_ratio",
+				"fresh_72h_ratio",
+				"multi_source_trend_ratio",
+				"citation_resolvable_ratio"
+			],
+			"properties": {
+				"dated_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+				"in_range_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+				"fresh_72h_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+				"multi_source_trend_ratio": {
+					"type": "number",
+					"minimum": 0,
+					"maximum": 1
+				},
+				"citation_resolvable_ratio": {
+					"type": "number",
+					"minimum": 0,
+					"maximum": 1
+				}
+			}
+		},
+		"quality_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+		"quality_grade": { "type": "string", "enum": ["A", "B", "C", "D", "F"] },
+		"extensions": { "type": "object", "additionalProperties": true }
+	}
+}

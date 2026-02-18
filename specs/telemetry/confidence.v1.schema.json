@@ -1,0 +1,90 @@
+{
+	"$id": "https://side-quest.dev/schemas/l30d/confidence.v1.json",
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "L30D Confidence v1",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"schema_version",
+		"calculation_version",
+		"score",
+		"label",
+		"factors",
+		"weights",
+		"reason_codes",
+		"explanation"
+	],
+	"properties": {
+		"schema_version": { "const": "confidence.v1" },
+		"calculation_version": { "const": "conf-v1" },
+		"score": { "type": "integer", "minimum": 0, "maximum": 100 },
+		"label": { "type": "string", "enum": ["high", "medium", "low"] },
+		"factors": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"freshness",
+				"source_confirmation",
+				"citation_validity",
+				"data_completeness",
+				"execution_health"
+			],
+			"properties": {
+				"freshness": { "type": "integer", "minimum": 0, "maximum": 100 },
+				"source_confirmation": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100
+				},
+				"citation_validity": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100
+				},
+				"data_completeness": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100
+				},
+				"execution_health": { "type": "integer", "minimum": 0, "maximum": 100 }
+			}
+		},
+		"weights": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"freshness",
+				"source_confirmation",
+				"citation_validity",
+				"data_completeness",
+				"execution_health"
+			],
+			"properties": {
+				"freshness": { "const": 0.3 },
+				"source_confirmation": { "const": 0.25 },
+				"citation_validity": { "const": 0.25 },
+				"data_completeness": { "const": 0.1 },
+				"execution_health": { "const": 0.1 }
+			}
+		},
+		"reason_codes": {
+			"type": "array",
+			"uniqueItems": true,
+			"items": {
+				"type": "string",
+				"enum": [
+					"low_freshness",
+					"low_source_confirmation",
+					"low_citation_validity",
+					"low_data_completeness",
+					"rate_limited",
+					"stale_cache_used",
+					"partial_source_failure",
+					"low_volume"
+				]
+			}
+		},
+		"explanation": { "type": "string", "minLength": 1, "maxLength": 500 },
+		"extensions": { "type": "object", "additionalProperties": true }
+	}
+}
