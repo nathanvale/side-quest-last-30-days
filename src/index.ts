@@ -84,6 +84,34 @@ export type {
 	WebSearchItem,
 	XItem,
 } from './lib/schema.js'
+// Telemetry contract types
+export type {
+	ConfidenceFactorsV1,
+	ConfidenceLabel,
+	ConfidenceReasonCode,
+	ConfidenceV1,
+	CostByProviderV1,
+	CostSummaryV1,
+	CountBySourceV1,
+	DataQualityGrade,
+	DataQualityRatiosV1,
+	DataQualityV1,
+	DateRangeV1,
+	LatencySummaryV1,
+	Phase2SkipReason,
+	Phase2SummaryV1,
+	QueryType,
+	RetrievalDepth,
+	RetrievalStrategy,
+	RunCompletedDataV1,
+	RunCompletedEnvelopeV1,
+	SourceSkipDetailV1,
+	SourceSkipReasonCode,
+	TelemetryEnvelopeV1,
+	TelemetrySource,
+	TopTrendV1,
+	TrendCategory,
+} from './lib/telemetry-contract.js'
 // Schema factories
 export { createReport } from './lib/schema.js'
 // Scoring
