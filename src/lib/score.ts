@@ -1,7 +1,13 @@
 /** Popularity-aware scoring for last-30-days skill. */
 
 import { recencyScore } from './dates.js'
-import type { Engagement, RedditItem, WebSearchItem, XItem } from './schema.js'
+import type {
+	Engagement,
+	RedditItem,
+	WebSearchItem,
+	XItem,
+	YouTubeItem,
+} from './schema.js'
 
 // Score weights for Reddit/X (has engagement)
 const WEIGHT_RELEVANCE = 0.45
@@ -177,6 +183,56 @@ export function scoreWebsearchItems(
 		if (item.date_confidence === 'high') overall += WEBSEARCH_VERIFIED_BONUS
 		else if (item.date_confidence === 'low')
 			overall -= WEBSEARCH_NO_DATE_PENALTY
+
+		item.score = Math.max(0, Math.min(100, Math.floor(overall)))
+	}
+
+	return items
+}
+
+/** Compute raw engagement score for YouTube item. */
+function computeYouTubeEngagementRaw(item: YouTubeItem): number {
+	return (
+		0.65 * Math.log1p(item.views) +
+		0.3 * Math.log1p(item.likes) +
+		0.05 * Math.log1p(item.comments)
+	)
+}
+
+/** Compute scores for YouTube items. */
+export function scoreYouTubeItems(
+	items: YouTubeItem[],
+	maxDays = 30,
+): YouTubeItem[] {
+	if (items.length === 0) return items
+
+	const engRaw = items.map((item) => computeYouTubeEngagementRaw(item))
+	const engNormalized = normalizeTo100(engRaw)
+
+	for (let i = 0; i < items.length; i++) {
+		const item = items[i]!
+		const relScore = Number.isFinite(item.relevance)
+			? Math.floor(item.relevance * 100)
+			: 50
+		const recScore = recencyScore(item.date, maxDays)
+		const engScore =
+			engNormalized[i] != null
+				? Math.floor(engNormalized[i]!)
+				: DEFAULT_ENGAGEMENT
+
+		item.subs = {
+			relevance: relScore,
+			recency: recScore,
+			engagement: engScore,
+		}
+
+		let overall =
+			WEIGHT_RELEVANCE * relScore +
+			WEIGHT_RECENCY * recScore +
+			WEIGHT_ENGAGEMENT * engScore
+
+		if (item.date_confidence === 'low') overall -= 10
+		else if (item.date_confidence === 'med') overall -= 5
 
 		item.score = Math.max(0, Math.min(100, Math.floor(overall)))
 	}

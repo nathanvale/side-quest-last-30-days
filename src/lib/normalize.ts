@@ -5,22 +5,21 @@ import {
 	type Comment,
 	defaultRedditItem,
 	defaultXItem,
+	defaultYouTubeItem,
 	type Engagement,
 	type RedditItem,
 	type WebSearchItem,
 	type XItem,
+	type YouTubeItem,
 } from './schema.js'
 
 /**
  * Hard filter: Remove items outside the date range.
  * This is the safety net - even if the prompt lets old content through.
  */
-export function filterByDateRange<T extends RedditItem | XItem | WebSearchItem>(
-	items: T[],
-	fromDate: string,
-	toDate: string,
-	requireDate = false,
-): T[] {
+export function filterByDateRange<
+	T extends RedditItem | XItem | WebSearchItem | YouTubeItem,
+>(items: T[], fromDate: string, toDate: string, requireDate = false): T[] {
 	const result: T[] = []
 	for (const item of items) {
 		if (item.date == null) {
@@ -108,6 +107,44 @@ export function normalizeXItems(
 			author_handle: (item.author_handle as string) ?? '',
 			date: dateStr,
 			date_confidence: dateConfidence,
+			engagement,
+			relevance: (item.relevance as number) ?? 0.5,
+			why_relevant: (item.why_relevant as string) ?? '',
+		})
+	})
+}
+
+/** Normalize raw YouTube items to schema. */
+export function normalizeYouTubeItems(
+	items: Record<string, unknown>[],
+	fromDate: string,
+	toDate: string,
+): YouTubeItem[] {
+	return items.map((item) => {
+		const views = Number(item.views ?? 0)
+		const likes = Number(item.likes ?? 0)
+		const comments = Number(item.comments ?? 0)
+
+		const engagement: Engagement = {
+			score: views,
+			likes,
+			replies: comments,
+		}
+
+		const dateStr = (item.date as string | null) ?? null
+		const dateConfidence = getDateConfidence(dateStr, fromDate, toDate)
+
+		return defaultYouTubeItem({
+			id: (item.id as string) ?? '',
+			title: (item.title as string) ?? '',
+			url: (item.url as string) ?? '',
+			channel: (item.channel as string) ?? '',
+			date: dateStr,
+			date_confidence: dateConfidence,
+			views,
+			likes,
+			comments,
+			transcript_snippet: (item.transcript_snippet as string) ?? '',
 			engagement,
 			relevance: (item.relevance as number) ?? 0.5,
 			why_relevant: (item.why_relevant as string) ?? '',
