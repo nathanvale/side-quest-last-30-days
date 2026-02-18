@@ -31,7 +31,7 @@ const LOCK_POLL_MS = 100
 const LOCK_STALE_MS = 300_000
 
 /** Bump when cache record format semantics change. */
-export const SEARCH_CACHE_SCHEMA_VERSION = 'v2'
+export const SEARCH_CACHE_SCHEMA_VERSION = 'v3'
 
 /** Ensure cache directory exists. */
 function ensureCacheDir(): void {
@@ -94,7 +94,7 @@ export function getSourceCacheKey(
 	fromDate: string,
 	toDate: string,
 	days: number,
-	source: 'reddit' | 'x',
+	source: string,
 	depth: string,
 	model: string | null,
 	promptVersion: string,
@@ -109,6 +109,28 @@ export function getSourceCacheKey(
 		`depth=${depth}`,
 		`model=${model ?? 'unknown'}`,
 		`prompt=${promptVersion}`,
+	].join('|')
+	return hashText(keyData)
+}
+
+/**
+ * Generate cache key for a phase 2 supplemental search result.
+ * Includes entity and entity type dimensions to avoid collisions
+ * between different supplemental queries.
+ */
+export function getPhase2CacheKey(
+	topic: string,
+	entity: string,
+	entityType: string,
+	source: string,
+): string {
+	const keyData = [
+		`schema=${SEARCH_CACHE_SCHEMA_VERSION}`,
+		`phase=2`,
+		`topic=${normalizeTopic(topic)}`,
+		`entity=${entity.toLowerCase().trim()}`,
+		`entityType=${entityType}`,
+		`source=${source}`,
 	].join('|')
 	return hashText(keyData)
 }

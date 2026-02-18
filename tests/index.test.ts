@@ -37,6 +37,7 @@ import {
 
 import {
 	getEnrichmentCacheKey,
+	getPhase2CacheKey,
 	getSourceCacheKey,
 	SEARCH_CACHE_SCHEMA_VERSION,
 } from '../src/lib/cache'
@@ -715,6 +716,71 @@ describe('cache key versioning', () => {
 	test('enrichment key is stable for same URL', () => {
 		const url = 'https://www.reddit.com/r/typescript/comments/abc123/example/'
 		expect(getEnrichmentCacheKey(url)).toBe(getEnrichmentCacheKey(url))
+	})
+
+	test('schema version is v3', () => {
+		expect(SEARCH_CACHE_SCHEMA_VERSION).toBe('v3')
+	})
+
+	test('getSourceCacheKey accepts youtube as source', () => {
+		const key = getSourceCacheKey(
+			'test topic',
+			'2026-01-13',
+			'2026-02-12',
+			30,
+			'youtube',
+			'default',
+			'gpt-4o',
+			'2026-02-11-v1',
+		)
+		expect(typeof key).toBe('string')
+		expect(key.length).toBe(16)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// cache: phase 2 keys
+// ---------------------------------------------------------------------------
+describe('phase 2 cache keys', () => {
+	test('same inputs produce identical keys', () => {
+		const key1 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		expect(key1).toBe(key2)
+	})
+
+	test('different entities produce different keys', () => {
+		const key1 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/openai', 'subreddit', 'reddit')
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different entity types produce different keys', () => {
+		const key1 = getPhase2CacheKey('Claude Code', '@anthropic', 'handle', 'x')
+		const key2 = getPhase2CacheKey('Claude Code', '@anthropic', 'hashtag', 'x')
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different sources produce different keys', () => {
+		const key1 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'youtube')
+		expect(key1).not.toBe(key2)
+	})
+
+	test('entity normalization is case-insensitive', () => {
+		const key1 = getPhase2CacheKey('Claude Code', 'R/FOO', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/foo', 'subreddit', 'reddit')
+		expect(key1).toBe(key2)
+	})
+
+	test('entity normalization trims whitespace', () => {
+		const key1 = getPhase2CacheKey('Claude Code', '  r/foo  ', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/foo', 'subreddit', 'reddit')
+		expect(key1).toBe(key2)
+	})
+
+	test('returns 16-char hex string', () => {
+		const key = getPhase2CacheKey('topic', 'entity', 'type', 'reddit')
+		expect(key).toMatch(/^[0-9a-f]{16}$/)
 	})
 })
 
