@@ -168,6 +168,24 @@ export {
 } from './lib/score.js'
 // Store
 export { closeDb, getDb, getDbPath, initDb } from './lib/store.js'
+// Telemetry runtime
+export type { TelemetryCollector } from './lib/telemetry.js'
+export {
+	createCollector,
+	emitTelemetry,
+	finalize,
+	generateRunId,
+	recordCacheHit,
+	recordCacheMiss,
+	recordError,
+	recordPhase1Latency,
+	recordPhase2Latency,
+	recordScoringLatency,
+	recordSourceExecuted,
+	recordSourceSkipped,
+	recordWarning,
+	wrapInEnvelope,
+} from './lib/telemetry.js'
 // Telemetry contract types
 export type {
 	ConfidenceFactorsV1,

@@ -41,6 +41,18 @@ import * as redditEnrich from './lib/reddit-enrich.js'
 import * as render from './lib/render.js'
 import * as schema from './lib/schema.js'
 import * as score from './lib/score.js'
+import {
+	createCollector,
+	emitTelemetry,
+	finalize,
+	generateRunId,
+	recordCacheHit,
+	recordCacheMiss,
+	recordPhase1Latency,
+	recordScoringLatency,
+	recordSourceExecuted,
+	wrapInEnvelope,
+} from './lib/telemetry.js'
 import { ProgressDisplay } from './lib/ui.js'
 import {
 	addTopic,
@@ -102,6 +114,10 @@ Options:
                        recommendations Best-of/comparison queries
                        news            Breaking/latest queries
                        general         Default balanced weights
+  --telemetry=MODE  Telemetry output (default: quiet)
+                     quiet    File only when --outdir set
+                     verbose  JSON to stderr + file
+                     file     Always write metrics file
   --mock           Use fixture data instead of real API calls
   --debug          Enable verbose debug logging
   -h, --help       Show this help message
@@ -159,6 +175,7 @@ function parseArgs(args: string[]) {
 	let strategy = 'single'
 	let phase2Budget = 5
 	let queryType = 'auto'
+	let telemetry = 'quiet'
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i]!
@@ -238,6 +255,14 @@ function parseArgs(args: string[]) {
 				queryType = value
 				i += 1
 			}
+		} else if (arg.startsWith('--telemetry=')) {
+			telemetry = arg.slice('--telemetry='.length)
+		} else if (arg === '--telemetry') {
+			const value = args[i + 1]
+			if (value && !value.startsWith('-')) {
+				telemetry = value
+				i += 1
+			}
 		} else if (arg.startsWith('--')) {
 			process.stderr.write(`Error: Unknown flag: ${arg}\n`)
 			process.stderr.write('Run last-30-days --help for usage.\n')
@@ -296,6 +321,14 @@ function parseArgs(args: string[]) {
 		process.exit(1)
 	}
 
+	const validTelemetryModes = ['quiet', 'verbose', 'file']
+	if (!validTelemetryModes.includes(telemetry)) {
+		process.stderr.write(
+			`Error: Invalid --telemetry value: "${telemetry}". Valid: ${validTelemetryModes.join(', ')}\n`,
+		)
+		process.exit(1)
+	}
+
 	return {
 		topic,
 		mock,
@@ -313,6 +346,7 @@ function parseArgs(args: string[]) {
 		strategy,
 		phase2Budget,
 		queryType,
+		telemetry,
 	}
 }
 
@@ -881,6 +915,10 @@ async function main() {
 
 	const args = parseArgs(rawArgs)
 
+	// Initialize telemetry collector for this run.
+	const runId = generateRunId()
+	const collector = createCollector(runId, args.topic)
+
 	if (args.debug) {
 		process.env.LAST_30_DAYS_DEBUG = '1'
 		process.stderr.write(
@@ -1041,8 +1079,13 @@ async function main() {
 
 	const promises: Promise<void>[] = []
 
+	const phase1Start = Date.now()
+
 	if (runReddit) {
 		progress.startReddit()
+		try {
+			collector.sources.requested.push('reddit')
+		} catch {}
 		promises.push(
 			searchRedditTask(
 				args.topic,
@@ -1066,9 +1109,27 @@ async function main() {
 					) {
 						maxCacheAge = result.cacheAgeHours
 					}
+					try {
+						recordCacheHit(collector)
+					} catch {}
+				} else {
+					try {
+						recordCacheMiss(collector)
+					} catch {}
 				}
 				if (result.rateLimited) redditRateLimited = true
-				if (result.usedStaleCache) redditUsedStaleCache = true
+				if (result.usedStaleCache) {
+					redditUsedStaleCache = true
+					try {
+						collector.staleCacheUsed = true
+						if (result.cacheAgeHours != null) {
+							collector.staleCacheAgeHours = result.cacheAgeHours
+						}
+					} catch {}
+				}
+				try {
+					recordSourceExecuted(collector, 'reddit', redditItems.length)
+				} catch {}
 				if (result.fromCache && !result.rateLimited) {
 					progress.endReddit(redditItems.length)
 				} else {
@@ -1081,6 +1142,9 @@ async function main() {
 
 	if (runX) {
 		progress.startX()
+		try {
+			collector.sources.requested.push('x')
+		} catch {}
 		promises.push(
 			searchXTask(
 				args.topic,
@@ -1104,9 +1168,27 @@ async function main() {
 					) {
 						maxCacheAge = result.cacheAgeHours
 					}
+					try {
+						recordCacheHit(collector)
+					} catch {}
+				} else {
+					try {
+						recordCacheMiss(collector)
+					} catch {}
 				}
 				if (result.rateLimited) xRateLimited = true
-				if (result.usedStaleCache) xUsedStaleCache = true
+				if (result.usedStaleCache) {
+					xUsedStaleCache = true
+					try {
+						collector.staleCacheUsed = true
+						if (result.cacheAgeHours != null) {
+							collector.staleCacheAgeHours = result.cacheAgeHours
+						}
+					} catch {}
+				}
+				try {
+					recordSourceExecuted(collector, 'x', xItems.length)
+				} catch {}
 				if (result.fromCache && !result.rateLimited) {
 					progress.endX(xItems.length)
 				} else {
@@ -1118,6 +1200,9 @@ async function main() {
 	}
 
 	await Promise.allSettled(promises)
+	try {
+		recordPhase1Latency(collector, Date.now() - phase1Start)
+	} catch {}
 
 	const anyRateLimited = redditRateLimited || xRateLimited
 	const anyUsedStaleCache = redditUsedStaleCache || xUsedStaleCache
@@ -1230,6 +1315,8 @@ async function main() {
 	// Processing phase
 	progress.startProcessing()
 
+	const scoringStart = Date.now()
+
 	const normalizedReddit = normalize.normalizeRedditItems(
 		redditItems,
 		fromDate,
@@ -1281,6 +1368,9 @@ async function main() {
 	const dedupedYouTube = dedupe.dedupeYouTube(scoredYouTube)
 
 	progress.endProcessing()
+	try {
+		recordScoringLatency(collector, Date.now() - scoringStart)
+	} catch {}
 
 	// Create report
 	const report = schema.createReport(
@@ -1316,6 +1406,39 @@ async function main() {
 			process.stderr.write(`Warning: Could not write output files: ${e}\n`)
 		}
 	}
+
+	// Emit telemetry
+	try {
+		const finalItemCount =
+			dedupedReddit.length + dedupedX.length + dedupedYouTube.length
+		// Map lowercase intent QueryType to uppercase telemetry contract QueryType.
+		const intentToTelemetry: Record<
+			string,
+			'PROMPTING' | 'RECOMMENDATIONS' | 'NEWS' | 'GENERAL'
+		> = {
+			prompting: 'PROMPTING',
+			recommendations: 'RECOMMENDATIONS',
+			news: 'NEWS',
+			general: 'GENERAL',
+		}
+		const telemetryQueryType = intentToTelemetry[resolvedQueryType] ?? 'GENERAL'
+		const telemetryData = finalize(collector, {
+			queryType: telemetryQueryType,
+			strategy: args.strategy as 'single' | 'two-phase',
+			depth: depth as 'quick' | 'default' | 'deep',
+			days: args.days,
+			fromDate,
+			toDate,
+			finalItemCount,
+			topTrends: [],
+		})
+		const envelope = wrapInEnvelope(telemetryData)
+		emitTelemetry(
+			envelope,
+			args.telemetry as 'quiet' | 'verbose' | 'file',
+			args.outdir || undefined,
+		)
+	} catch {}
 
 	// Show completion
 	if (sources === 'web') {
