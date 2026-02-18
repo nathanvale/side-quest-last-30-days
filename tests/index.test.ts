@@ -742,113 +742,44 @@ describe('cache key versioning', () => {
 // cache: phase 2 keys
 // ---------------------------------------------------------------------------
 describe('phase 2 cache keys', () => {
-	const base = {
-		topic: 'Claude Code',
-		fromDate: '2026-01-13',
-		toDate: '2026-02-12',
-		days: 30,
-		depth: 'default',
-		model: 'gpt-4o' as string | null,
-		promptVersion: '2026-02-11-v1',
-		entity: 'r/claudeai',
-		entityType: 'subreddit',
-		source: 'reddit',
-	}
-
-	function makePhase2Key(overrides: Partial<typeof base> = {}): string {
-		const cfg = { ...base, ...overrides }
-		return getPhase2CacheKey(
-			cfg.topic,
-			cfg.fromDate,
-			cfg.toDate,
-			cfg.days,
-			cfg.depth,
-			cfg.model,
-			cfg.promptVersion,
-			cfg.entity,
-			cfg.entityType,
-			cfg.source,
-		)
-	}
-
 	test('same inputs produce identical keys', () => {
-		const key1 = makePhase2Key()
-		const key2 = makePhase2Key()
+		const key1 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
 		expect(key1).toBe(key2)
 	})
 
 	test('different entities produce different keys', () => {
-		const key1 = makePhase2Key({ entity: 'r/claudeai' })
-		const key2 = makePhase2Key({ entity: 'r/openai' })
+		const key1 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/openai', 'subreddit', 'reddit')
 		expect(key1).not.toBe(key2)
 	})
 
 	test('different entity types produce different keys', () => {
-		const key1 = makePhase2Key({
-			entity: '@anthropic',
-			entityType: 'handle',
-			source: 'x',
-		})
-		const key2 = makePhase2Key({
-			entity: '@anthropic',
-			entityType: 'hashtag',
-			source: 'x',
-		})
+		const key1 = getPhase2CacheKey('Claude Code', '@anthropic', 'handle', 'x')
+		const key2 = getPhase2CacheKey('Claude Code', '@anthropic', 'hashtag', 'x')
 		expect(key1).not.toBe(key2)
 	})
 
 	test('different sources produce different keys', () => {
-		const key1 = makePhase2Key({ source: 'reddit' })
-		const key2 = makePhase2Key({ source: 'youtube' })
+		const key1 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/claudeai', 'subreddit', 'youtube')
 		expect(key1).not.toBe(key2)
 	})
 
 	test('entity normalization is case-insensitive', () => {
-		const key1 = makePhase2Key({ entity: 'R/FOO' })
-		const key2 = makePhase2Key({ entity: 'r/foo' })
+		const key1 = getPhase2CacheKey('Claude Code', 'R/FOO', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/foo', 'subreddit', 'reddit')
 		expect(key1).toBe(key2)
 	})
 
 	test('entity normalization trims whitespace', () => {
-		const key1 = makePhase2Key({ entity: '  r/foo  ' })
-		const key2 = makePhase2Key({ entity: 'r/foo' })
+		const key1 = getPhase2CacheKey('Claude Code', '  r/foo  ', 'subreddit', 'reddit')
+		const key2 = getPhase2CacheKey('Claude Code', 'r/foo', 'subreddit', 'reddit')
 		expect(key1).toBe(key2)
 	})
 
-	test('different date windows produce different keys', () => {
-		const key1 = makePhase2Key({
-			fromDate: '2026-01-13',
-			toDate: '2026-02-12',
-			days: 30,
-		})
-		const key2 = makePhase2Key({
-			fromDate: '2026-02-06',
-			toDate: '2026-02-12',
-			days: 7,
-		})
-		expect(key1).not.toBe(key2)
-	})
-
-	test('different depth produces different keys', () => {
-		const key1 = makePhase2Key({ depth: 'quick' })
-		const key2 = makePhase2Key({ depth: 'deep' })
-		expect(key1).not.toBe(key2)
-	})
-
-	test('different model produces different keys', () => {
-		const key1 = makePhase2Key({ model: 'gpt-4o' })
-		const key2 = makePhase2Key({ model: 'gpt-4o-mini' })
-		expect(key1).not.toBe(key2)
-	})
-
-	test('different prompt versions produce different keys', () => {
-		const key1 = makePhase2Key({ promptVersion: '2026-02-11-v1' })
-		const key2 = makePhase2Key({ promptVersion: '2026-02-12-v2' })
-		expect(key1).not.toBe(key2)
-	})
-
 	test('returns 16-char hex string', () => {
-		const key = makePhase2Key()
+		const key = getPhase2CacheKey('topic', 'entity', 'type', 'reddit')
 		expect(key).toMatch(/^[0-9a-f]{16}$/)
 	})
 })
