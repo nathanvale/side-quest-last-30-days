@@ -78,8 +78,10 @@ export function freshnessAtK(
 }
 
 /**
- * Fraction of oracle entity strings found in the top K items' URLs.
- * Case-insensitive substring matching. Returns 0-1.
+ * Fraction of oracle entities found in top K item text.
+ * Uses a normalized corpus across url/title/snippet/content and
+ * variants that handle @/# sigils and multi-word URL forms.
+ * Returns 0-1.
  */
 export function trendRecallAtK(
 	items: EvalItem[],

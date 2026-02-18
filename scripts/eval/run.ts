@@ -244,6 +244,15 @@ const THRESHOLDS = {
 	regressionSafetyThreshold: 0.02,
 }
 const enforceCitationGate = mode === 'full'
+const citationValidityRawPass = avgCitation >= THRESHOLDS.citationValidity
+const runReliabilityPass = runReliability(runs) >= THRESHOLDS.runReliability
+const performanceP95Pass =
+	performanceP95(durations) <= THRESHOLDS.performanceP95
+const regressionSafetyPass = regressionSafety(
+	avgCitation,
+	baselineCitation,
+	THRESHOLDS.regressionSafetyThreshold,
+)
 
 const scorecard = {
 	generatedAt: new Date().toISOString(),
@@ -264,16 +273,16 @@ const scorecard = {
 	},
 	thresholds: THRESHOLDS,
 	passed: {
-		citationValidity: enforceCitationGate
-			? avgCitation >= THRESHOLDS.citationValidity
-			: true,
-		runReliability: runReliability(runs) >= THRESHOLDS.runReliability,
-		performanceP95: performanceP95(durations) <= THRESHOLDS.performanceP95,
-		regressionSafety: regressionSafety(
-			avgCitation,
-			baselineCitation,
-			THRESHOLDS.regressionSafetyThreshold,
-		),
+		citationValidity: enforceCitationGate ? citationValidityRawPass : true,
+		runReliability: runReliabilityPass,
+		performanceP95: performanceP95Pass,
+		regressionSafety: regressionSafetyPass,
+	},
+	checks: {
+		citationValidity: citationValidityRawPass,
+		runReliability: runReliabilityPass,
+		performanceP95: performanceP95Pass,
+		regressionSafety: regressionSafetyPass,
 	},
 	gates: {
 		citationValidity: enforceCitationGate ? 'required' : 'observational',
@@ -295,11 +304,19 @@ if (shouldUpdateBaseline) {
 		`${JSON.stringify(
 			{
 				generatedAt: scorecard.generatedAt,
+				mode: scorecard.mode,
 				topicCount: scorecard.topicCount,
 				kpis: scorecard.kpis,
 				thresholds: scorecard.thresholds,
-				passed: scorecard.passed,
-				note: 'Baseline generated from eval harness.',
+				checks: scorecard.checks,
+				gates: scorecard.gates,
+				passed: {
+					citationValidity: scorecard.checks.citationValidity,
+					runReliability: scorecard.checks.runReliability,
+					performanceP95: scorecard.checks.performanceP95,
+					regressionSafety: scorecard.checks.regressionSafety,
+				},
+				note: 'Baseline generated from eval harness. In PR mode, citationValidity is observational for run gating; checks/passed values here are raw KPI truth values.',
 			},
 			null,
 			'\t',

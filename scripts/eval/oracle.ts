@@ -20,8 +20,8 @@ function toEntityVariants(entity: string): string[] {
 
 /**
  * Compare search results against oracle entities.
- * Returns fraction of oracle entities found (case-insensitive substring match)
- * in the concatenated URLs of the result items.
+ * Returns fraction of oracle entities found in a normalized corpus of
+ * url/title/snippet/content text, including @/# and multi-word variants.
  */
 export function compareToOracle(
 	items: EvalItem[],
