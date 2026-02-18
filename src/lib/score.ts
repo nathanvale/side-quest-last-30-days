@@ -1,6 +1,7 @@
 /** Popularity-aware scoring for last-30-days skill. */
 
 import { recencyScore } from './dates.js'
+import type { IntentWeights } from './intent.js'
 import type {
 	Engagement,
 	RedditItem,
@@ -96,11 +97,18 @@ function normalizeTo100(
 	})
 }
 
-/** Compute scores for Reddit items. */
+/**
+ * Compute scores for Reddit items.
+ *
+ * When intentWeights is provided, weight constants are replaced by the intent
+ * policy weights. If trend data is also present the trend slot takes 10% and
+ * intent weights are scaled to 90%, keeping the total at 100%.
+ */
 export function scoreRedditItems(
 	items: RedditItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	intentWeights?: IntentWeights,
 ): RedditItem[] {
 	if (items.length === 0) return items
 
@@ -125,7 +133,21 @@ export function scoreRedditItems(
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
-		if (ts) {
+		if (intentWeights) {
+			if (ts) {
+				// Trend takes 10%; intent weights scaled to 90%
+				overall =
+					intentWeights.relevance * 0.9 * relScore +
+					intentWeights.recency * 0.9 * recScore +
+					intentWeights.engagement * 0.9 * engScore +
+					0.1 * ts.trendScore * 100
+			} else {
+				overall =
+					intentWeights.relevance * relScore +
+					intentWeights.recency * recScore +
+					intentWeights.engagement * engScore
+			}
+		} else if (ts) {
 			overall =
 				TREND_WEIGHT_RELEVANCE * relScore +
 				TREND_WEIGHT_RECENCY * recScore +
@@ -148,11 +170,18 @@ export function scoreRedditItems(
 	return items
 }
 
-/** Compute scores for X items. */
+/**
+ * Compute scores for X items.
+ *
+ * When intentWeights is provided, weight constants are replaced by the intent
+ * policy weights. If trend data is also present the trend slot takes 10% and
+ * intent weights are scaled to 90%, keeping the total at 100%.
+ */
 export function scoreXItems(
 	items: XItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	intentWeights?: IntentWeights,
 ): XItem[] {
 	if (items.length === 0) return items
 
@@ -175,7 +204,21 @@ export function scoreXItems(
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
-		if (ts) {
+		if (intentWeights) {
+			if (ts) {
+				// Trend takes 10%; intent weights scaled to 90%
+				overall =
+					intentWeights.relevance * 0.9 * relScore +
+					intentWeights.recency * 0.9 * recScore +
+					intentWeights.engagement * 0.9 * engScore +
+					0.1 * ts.trendScore * 100
+			} else {
+				overall =
+					intentWeights.relevance * relScore +
+					intentWeights.recency * recScore +
+					intentWeights.engagement * engScore
+			}
+		} else if (ts) {
 			overall =
 				TREND_WEIGHT_RELEVANCE * relScore +
 				TREND_WEIGHT_RECENCY * recScore +
@@ -198,11 +241,18 @@ export function scoreXItems(
 	return items
 }
 
-/** Compute scores for WebSearch items WITHOUT engagement metrics. */
+/**
+ * Compute scores for WebSearch items WITHOUT engagement metrics.
+ *
+ * When intentWeights is provided, relevance and recency are redistributed
+ * proportionally (engagement is ignored for web search). If trend data is
+ * also present the trend slot takes 10% and intent weights are scaled to 90%.
+ */
 export function scoreWebsearchItems(
 	items: WebSearchItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	intentWeights?: IntentWeights,
 ): WebSearchItem[] {
 	if (items.length === 0) return items
 
@@ -217,7 +267,24 @@ export function scoreWebsearchItems(
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
-		if (ts) {
+		if (intentWeights) {
+			// WebSearch has no engagement; redistribute relevance+recency to 100%
+			const relPlusRec = intentWeights.relevance + intentWeights.recency
+			// Guard against degenerate zero-sum (fall back to equal split)
+			const relShare =
+				relPlusRec > 0 ? intentWeights.relevance / relPlusRec : 0.5
+			const recShare = relPlusRec > 0 ? intentWeights.recency / relPlusRec : 0.5
+
+			if (ts) {
+				// Trend takes 10%; intent weights scaled to 90%
+				overall =
+					relShare * 0.9 * relScore +
+					recShare * 0.9 * recScore +
+					0.1 * ts.trendScore * 100
+			} else {
+				overall = relShare * relScore + recShare * recScore
+			}
+		} else if (ts) {
 			overall =
 				TREND_WEBSEARCH_WEIGHT_RELEVANCE * relScore +
 				TREND_WEBSEARCH_WEIGHT_RECENCY * recScore +
@@ -249,11 +316,18 @@ function computeYouTubeEngagementRaw(item: YouTubeItem): number {
 	)
 }
 
-/** Compute scores for YouTube items. */
+/**
+ * Compute scores for YouTube items.
+ *
+ * When intentWeights is provided, weight constants are replaced by the intent
+ * policy weights. If trend data is also present the trend slot takes 10% and
+ * intent weights are scaled to 90%, keeping the total at 100%.
+ */
 export function scoreYouTubeItems(
 	items: YouTubeItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	intentWeights?: IntentWeights,
 ): YouTubeItem[] {
 	if (items.length === 0) return items
 
@@ -280,7 +354,21 @@ export function scoreYouTubeItems(
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
-		if (ts) {
+		if (intentWeights) {
+			if (ts) {
+				// Trend takes 10%; intent weights scaled to 90%
+				overall =
+					intentWeights.relevance * 0.9 * relScore +
+					intentWeights.recency * 0.9 * recScore +
+					intentWeights.engagement * 0.9 * engScore +
+					0.1 * ts.trendScore * 100
+			} else {
+				overall =
+					intentWeights.relevance * relScore +
+					intentWeights.recency * recScore +
+					intentWeights.engagement * engScore
+			}
+		} else if (ts) {
 			overall =
 				TREND_WEIGHT_RELEVANCE * relScore +
 				TREND_WEIGHT_RECENCY * recScore +
