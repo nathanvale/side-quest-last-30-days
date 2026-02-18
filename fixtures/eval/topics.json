@@ -1,0 +1,42 @@
+[
+	{
+		"topic": "Claude AI prompting techniques",
+		"category": "prompting"
+	},
+	{
+		"topic": "React Server Components",
+		"category": "trending"
+	},
+	{
+		"topic": "Rust vs Go 2025",
+		"category": "evergreen"
+	},
+	{
+		"topic": "OpenAI o3 model",
+		"category": "news"
+	},
+	{
+		"topic": "TypeScript 5.8 features",
+		"category": "trending"
+	},
+	{
+		"topic": "LLM fine-tuning best practices",
+		"category": "recommendations"
+	},
+	{
+		"topic": "Bun runtime performance",
+		"category": "niche"
+	},
+	{
+		"topic": "AI code review tools",
+		"category": "recommendations"
+	},
+	{
+		"topic": "WebAssembly WASI preview 2",
+		"category": "niche"
+	},
+	{
+		"topic": "GitHub Copilot alternatives",
+		"category": "evergreen"
+	}
+]

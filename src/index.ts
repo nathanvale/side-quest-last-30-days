@@ -43,6 +43,20 @@ export {
 	jaccardSimilarity,
 	normalizeText,
 } from './lib/dedupe.js'
+export type { EvalCluster, EvalItem } from './lib/eval-metrics.js'
+// Eval metrics
+export {
+	citationValidity,
+	crossSourceConfirmation,
+	freshnessAtK,
+	medianRunCost,
+	momentumPrecisionAtK,
+	performanceP95,
+	regressionSafety,
+	runReliability,
+	trendRecallAtK,
+	watchlistDeltaUtility,
+} from './lib/eval-metrics.js'
 // HTTP / retry
 export {
 	backoffDelay,
