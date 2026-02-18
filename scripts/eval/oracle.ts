@@ -33,6 +33,7 @@ export function compareToOracle(
 		.flatMap((item) => [
 			item.url,
 			item.title ?? '',
+			item.text ?? '',
 			item.snippet ?? '',
 			item.content ?? '',
 		])

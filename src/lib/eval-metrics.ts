@@ -6,6 +6,7 @@ export interface EvalItem {
 	score: number
 	url: string
 	title?: string
+	text?: string
 	snippet?: string
 	content?: string
 	engagement?: {
@@ -96,6 +97,7 @@ export function trendRecallAtK(
 		.flatMap((item) => [
 			item.url,
 			item.title ?? '',
+			item.text ?? '',
 			item.snippet ?? '',
 			item.content ?? '',
 		])

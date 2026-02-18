@@ -29,6 +29,18 @@ describe('compareToOracle', () => {
 		expect(compareToOracle(items, ['system prompt', 'chain of thought'])).toBe(1)
 	})
 
+	test('matches entities from x-style text field', () => {
+		const items: EvalItem[] = [
+			{
+				date: null,
+				score: 90,
+				url: 'https://x.com/example/status/123',
+				text: 'Bun benchmark shows improved runtime performance',
+			},
+		]
+		expect(compareToOracle(items, ['runtime performance', 'bun'])).toBe(1)
+	})
+
 	test('returns 0 when oracle has entities but items are empty', () => {
 		expect(compareToOracle([], ['r/reactjs'])).toBe(0)
 	})

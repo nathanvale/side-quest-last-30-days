@@ -131,6 +131,18 @@ describe('trendRecallAtK', () => {
 		]
 		expect(trendRecallAtK(items, ['server actions', 'chain of thought'], 2)).toBe(1)
 	})
+
+	test('matches entities in x-style text field', () => {
+		const items: EvalItem[] = [
+			{
+				date: null,
+				score: 90,
+				url: 'https://x.com/example/status/123',
+				text: 'OpenAI released o3 with strong reasoning benchmarks',
+			},
+		]
+		expect(trendRecallAtK(items, ['o3', 'reasoning'], 1)).toBe(1)
+	})
 })
 
 // ---------------------------------------------------------------------------

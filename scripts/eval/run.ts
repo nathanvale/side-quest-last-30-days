@@ -48,16 +48,25 @@ interface ReportData {
 		url: string
 		score: number
 		date: string | null
+		title?: string
+		text?: string
+		snippet?: string
 	}>
 	x?: Array<{
 		url: string
 		score: number
 		date: string | null
+		title?: string
+		text?: string
+		snippet?: string
 	}>
 	web?: Array<{
 		url: string
 		score: number
 		date: string | null
+		title?: string
+		text?: string
+		snippet?: string
 	}>
 }
 
@@ -155,10 +164,39 @@ function runTopic(
 }
 
 /** Collect all items from a report into a flat array. */
-function collectItems(
-	report: ReportData,
-): Array<{ url: string; score: number; date: string | null }> {
-	return [...(report.reddit ?? []), ...(report.x ?? []), ...(report.web ?? [])]
+function collectItems(report: ReportData): Array<{
+	url: string
+	score: number
+	date: string | null
+	title?: string
+	text?: string
+	snippet?: string
+}> {
+	const redditItems = (report.reddit ?? []).map((item) => ({
+		url: item.url,
+		score: item.score,
+		date: item.date,
+		title: item.title,
+		text: item.text,
+		snippet: item.snippet,
+	}))
+	const xItems = (report.x ?? []).map((item) => ({
+		url: item.url,
+		score: item.score,
+		date: item.date,
+		title: item.title,
+		text: item.text,
+		snippet: item.snippet,
+	}))
+	const webItems = (report.web ?? []).map((item) => ({
+		url: item.url,
+		score: item.score,
+		date: item.date,
+		title: item.title,
+		text: item.text,
+		snippet: item.snippet,
+	}))
+	return [...redditItems, ...xItems, ...webItems]
 }
 
 // ---------------------------------------------------------------------------
