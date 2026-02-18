@@ -8,6 +8,7 @@ import type {
 	XItem,
 	YouTubeItem,
 } from './schema.js'
+import type { TrendScore } from './trend.js'
 
 // Score weights for Reddit/X (has engagement)
 const WEIGHT_RELEVANCE = 0.45
@@ -22,6 +23,17 @@ const WEBSEARCH_SOURCE_PENALTY = 15
 // WebSearch date confidence adjustments
 const WEBSEARCH_VERIFIED_BONUS = 10
 const WEBSEARCH_NO_DATE_PENALTY = 20
+
+// Trend weight (when trend data is available)
+const WEIGHT_TREND = 0.1
+// Adjusted weights when trend data is present (sum to 0.9)
+const TREND_WEIGHT_RELEVANCE = 0.405
+const TREND_WEIGHT_RECENCY = 0.225
+const TREND_WEIGHT_ENGAGEMENT = 0.27
+
+// Adjusted websearch weights when trend data is present (sum to 0.9)
+const TREND_WEBSEARCH_WEIGHT_RELEVANCE = 0.495
+const TREND_WEBSEARCH_WEIGHT_RECENCY = 0.405
 
 // Default engagement score for unknown
 const DEFAULT_ENGAGEMENT = 35
@@ -88,6 +100,7 @@ function normalizeTo100(
 export function scoreRedditItems(
 	items: RedditItem[],
 	maxDays = 30,
+	trendScores?: Map<string, TrendScore>,
 ): RedditItem[] {
 	if (items.length === 0) return items
 
@@ -109,10 +122,21 @@ export function scoreRedditItems(
 
 		item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
 
-		let overall =
-			WEIGHT_RELEVANCE * relScore +
-			WEIGHT_RECENCY * recScore +
-			WEIGHT_ENGAGEMENT * engScore
+		const ts = trendScores?.get(item.id)
+
+		let overall: number
+		if (ts) {
+			overall =
+				TREND_WEIGHT_RELEVANCE * relScore +
+				TREND_WEIGHT_RECENCY * recScore +
+				TREND_WEIGHT_ENGAGEMENT * engScore +
+				WEIGHT_TREND * ts.trendScore * 100
+		} else {
+			overall =
+				WEIGHT_RELEVANCE * relScore +
+				WEIGHT_RECENCY * recScore +
+				WEIGHT_ENGAGEMENT * engScore
+		}
 
 		if (engRaw[i] === null) overall -= UNKNOWN_ENGAGEMENT_PENALTY
 		if (item.date_confidence === 'low') overall -= 10
@@ -125,7 +149,11 @@ export function scoreRedditItems(
 }
 
 /** Compute scores for X items. */
-export function scoreXItems(items: XItem[], maxDays = 30): XItem[] {
+export function scoreXItems(
+	items: XItem[],
+	maxDays = 30,
+	trendScores?: Map<string, TrendScore>,
+): XItem[] {
 	if (items.length === 0) return items
 
 	const engRaw = items.map((item) => computeXEngagementRaw(item.engagement))
@@ -144,10 +172,21 @@ export function scoreXItems(items: XItem[], maxDays = 30): XItem[] {
 
 		item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
 
-		let overall =
-			WEIGHT_RELEVANCE * relScore +
-			WEIGHT_RECENCY * recScore +
-			WEIGHT_ENGAGEMENT * engScore
+		const ts = trendScores?.get(item.id)
+
+		let overall: number
+		if (ts) {
+			overall =
+				TREND_WEIGHT_RELEVANCE * relScore +
+				TREND_WEIGHT_RECENCY * recScore +
+				TREND_WEIGHT_ENGAGEMENT * engScore +
+				WEIGHT_TREND * ts.trendScore * 100
+		} else {
+			overall =
+				WEIGHT_RELEVANCE * relScore +
+				WEIGHT_RECENCY * recScore +
+				WEIGHT_ENGAGEMENT * engScore
+		}
 
 		if (engRaw[i] === null) overall -= UNKNOWN_ENGAGEMENT_PENALTY
 		if (item.date_confidence === 'low') overall -= 10
@@ -163,6 +202,7 @@ export function scoreXItems(items: XItem[], maxDays = 30): XItem[] {
 export function scoreWebsearchItems(
 	items: WebSearchItem[],
 	maxDays = 30,
+	trendScores?: Map<string, TrendScore>,
 ): WebSearchItem[] {
 	if (items.length === 0) return items
 
@@ -174,9 +214,19 @@ export function scoreWebsearchItems(
 
 		item.subs = { relevance: relScore, recency: recScore, engagement: 0 }
 
-		let overall =
-			WEBSEARCH_WEIGHT_RELEVANCE * relScore +
-			WEBSEARCH_WEIGHT_RECENCY * recScore
+		const ts = trendScores?.get(item.id)
+
+		let overall: number
+		if (ts) {
+			overall =
+				TREND_WEBSEARCH_WEIGHT_RELEVANCE * relScore +
+				TREND_WEBSEARCH_WEIGHT_RECENCY * recScore +
+				WEIGHT_TREND * ts.trendScore * 100
+		} else {
+			overall =
+				WEBSEARCH_WEIGHT_RELEVANCE * relScore +
+				WEBSEARCH_WEIGHT_RECENCY * recScore
+		}
 
 		overall -= WEBSEARCH_SOURCE_PENALTY
 
@@ -203,6 +253,7 @@ function computeYouTubeEngagementRaw(item: YouTubeItem): number {
 export function scoreYouTubeItems(
 	items: YouTubeItem[],
 	maxDays = 30,
+	trendScores?: Map<string, TrendScore>,
 ): YouTubeItem[] {
 	if (items.length === 0) return items
 
@@ -226,10 +277,21 @@ export function scoreYouTubeItems(
 			engagement: engScore,
 		}
 
-		let overall =
-			WEIGHT_RELEVANCE * relScore +
-			WEIGHT_RECENCY * recScore +
-			WEIGHT_ENGAGEMENT * engScore
+		const ts = trendScores?.get(item.id)
+
+		let overall: number
+		if (ts) {
+			overall =
+				TREND_WEIGHT_RELEVANCE * relScore +
+				TREND_WEIGHT_RECENCY * recScore +
+				TREND_WEIGHT_ENGAGEMENT * engScore +
+				WEIGHT_TREND * ts.trendScore * 100
+		} else {
+			overall =
+				WEIGHT_RELEVANCE * relScore +
+				WEIGHT_RECENCY * recScore +
+				WEIGHT_ENGAGEMENT * engScore
+		}
 
 		if (item.date_confidence === 'low') overall -= 10
 		else if (item.date_confidence === 'med') overall -= 5
