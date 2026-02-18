@@ -4,145 +4,110 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`@side-quest/last-30-days` - a CLI tool and library that researches any topic from the last 30 days across Reddit, X (Twitter), and web search. Results are engagement-ranked, deduplicated, and scored.
-
-**Stack:** TypeScript, Bun, Biome, Bunup (build), Changesets
-
----
+`@side-quest/last-30-days` -- a CLI + library that researches any topic from the last 30 days across Reddit, X, and web search, returning engagement-ranked results. Single package (not a monorepo), published to npm with provenance signing.
 
 ## Commands
 
 ```bash
 # Development
-bun dev                  # Watch mode (runs src/index.ts)
-bun run build            # Build via bunup to dist/
+bun install                    # Install dependencies
+bun run dev                    # Watch mode (src/index.ts)
+bun run build                  # Compile via bunup -> dist/
 
 # Quality
-bun run check            # Biome lint + format (write mode)
-bun typecheck            # TypeScript type checking (uses tsconfig.eslint.json)
-bun run validate         # Full pipeline: lint + types + build + test
+bun run lint                   # Biome lint check
+bun run lint:fix               # Biome lint auto-fix
+bun run format                 # Biome format
+bun run check                  # Biome lint + format (write)
+bun run typecheck              # tsc --noEmit (uses tsconfig.eslint.json)
+bun run validate               # Full pipeline: lint + typecheck + build + test
 
 # Testing
-bun test                 # Run all tests (recursive)
-bun test tests/index.test.ts  # Run single test file
-bun test --watch         # Watch mode
+bun test                       # Run all tests
+bun test --watch               # Watch mode
+bun test --coverage            # With coverage
+bun test tests/index.test.ts   # Single test file
 
-# CLI usage (after build)
-last-30-days <topic> [--mock] [--emit=compact|json|md|context|path] [--sources=auto|reddit|x|both] [--quick|--deep] [--debug] [--include-web] [--refresh] [--no-cache]
+# Package hygiene
+bun run hygiene                # publint + attw checks
+bun run pack:dry               # Inspect package contents
+
+# Versioning
+bun run version:gen            # Interactive changeset generation
 ```
-
----
 
 ## Architecture
 
-### Dual entry points (bunup.config.ts)
+### Newsroom Metaphor
 
-- `src/index.ts` - Library API. Re-exports all public functions/types from `src/lib/`. No side effects.
-- `src/cli.ts` - CLI binary (`last-30-days`). Orchestrates the full pipeline: parse args, search, enrich, normalize, score, dedupe, render.
+The codebase follows an editorial newsroom pattern:
 
-### Pipeline (cli.ts `main()`)
+```
+CLI (Editor-in-Chief) -- src/cli.ts
+  |-- openai-reddit.ts (Reporter)    -> OpenAI Responses API for Reddit
+  |-- xai-x.ts (Reporter)           -> xAI Responses API for X/Twitter
+  |-- websearch.ts (Stringer)       -> Delegates to Claude's WebSearch tool
+  |-- reddit-enrich.ts (Fact-Check) -> Verifies via Reddit public JSON
+  |-- score.ts + dedupe.ts (Copy Desk) -> Normalizes, ranks, deduplicates
+  |-- render.ts (Layout)            -> Output: compact, JSON, markdown, context
+```
 
-1. **Config** (`config.ts`) - Loads API keys from env or `~/.config/last-30-days/.env`. Determines available sources (reddit/x/both/web).
-2. **Models** (`models.ts`) - Auto-selects best OpenAI/xAI model. OpenAI: picks highest-version mainline GPT-5.x via API. xAI: alias-based (latest = grok-4-1-fast). Results cached in `~/.cache/last-30-days/`.
-3. **Search** (parallel) - `openai-reddit.ts` uses OpenAI Responses API with `web_search` tool filtered to reddit.com. `xai-x.ts` uses xAI Responses API with `x_search` tool. Both parse JSON from LLM output text.
-4. **Enrich** (`reddit-enrich.ts`) - Fetches real engagement metrics from Reddit's JSON API (`reddit.com/.../.json`). Extracts top comments and insights.
-5. **Normalize** (`normalize.ts`) - Converts raw API responses to typed schema (`RedditItem`, `XItem`, `WebSearchItem`). Filters by date range.
-6. **Score** (`score.ts`) - Weighted scoring: relevance (45%) + recency (25%) + engagement (30%). WebSearch items get a source penalty and no engagement component.
-7. **Dedupe** (`dedupe.ts`) - Jaccard similarity on character n-grams. URL-based and content-based deduplication.
-8. **Render** (`render.ts`) - Multiple output formats: compact (default), JSON, markdown, context snippet. Writes to `~/.local/share/last-30-days/out/`.
+### Key Design Decisions
 
-### Key data types (schema.ts)
+- **Library vs CLI separation**: `src/index.ts` is a pure barrel export (no side effects). `src/cli.ts` contains all orchestration and I/O. They are independent entry points.
+- **WebSearch delegation**: The CLI doesn't search the web itself. It outputs structured JSON instructions for Claude to use its WebSearch tool. This is intentional.
+- **Versioned cache keys**: Cache keys hash topic + source + depth + model + prompt version + date range. Stale cache (5+ days old) is served as fallback on transient rate-limit errors.
+- **Cache concurrency**: File locking + atomic writes prevent thundering herd on cache misses.
+- **N-gram deduplication**: Uses 3-character grams with Jaccard similarity at 70% threshold (not simple string matching).
+- **Scoring philosophy**: Engagement weight > relevance weight. High-upvote posts beat high-keyword-match low-engagement posts.
+- **Error classification**: Transient 429 (rate-limit) triggers stale cache fallback. Non-transient errors (quota, billing) fail hard.
+- **--mock mode**: Loads fixtures from `fixtures/` directory, simulates having API keys. Used in tests and local dev.
 
-`Report` is the central data structure containing `RedditItem[]`, `XItem[]`, `WebSearchItem[]`, metadata, and errors. Each item has `score` (0-100), `subs` (component scores), `engagement`, and `date_confidence`.
+### Source Modules (src/lib/)
 
-### Resilience layer
+| Module | Responsibility |
+|--------|---------------|
+| cache.ts | Filesystem cache with TTL, versioning, concurrency safety |
+| config.ts | Loads env vars from `~/.config/last-30-days/.env` |
+| dates.ts | Date range math, recency scoring |
+| dedupe.ts | N-gram Jaccard similarity deduplication |
+| http.ts | Retry logic, rate-limit parsing, error types |
+| models.ts | Auto-selects latest model from OpenAI/xAI APIs |
+| normalize.ts | Converts raw API responses to standard schema |
+| openai-reddit.ts | Reddit search via OpenAI Responses API |
+| reddit-enrich.ts | Fetches real engagement data from Reddit JSON |
+| render.ts | Output formatting (compact, JSON, markdown, context snippet) |
+| schema.ts | TypeScript interfaces + Report factory |
+| score.ts | Multi-factor scoring: relevance x recency x engagement |
+| ui.ts | Terminal progress display |
+| websearch.ts | Date extraction patterns for web results |
+| xai-x.ts | X search via xAI Responses API |
 
-- **HTTP** (`http.ts`) - 5 retries with exponential backoff + jitter, 429 classification (transient vs quota/billing), Retry-After header parsing, structured `RateLimitError` type.
-- **Cache** (`cache.ts`) - Per-source versioned search cache (1h TTL), stale fallback on transient 429 (24h TTL), enrichment cache (24h), model selection cache (7d). Atomic writes with file locking for concurrency safety.
+## Code Style
 
-### External API dependencies
+- **Formatter**: Biome (tabs, single quotes, semicolons as-needed, trailing commas)
+- **Line width**: 80 default, 100 for test files
+- **Never create nested biome.json** -- single root config only
+- **TypeScript strict mode** with `verbatimModuleSyntax` and bundler module resolution
+- **No runtime dependencies** except `@side-quest/core` -- uses native `fetch`, `node:fs`, built-in JSON
+- **JSDoc required** on all exported functions
 
-- **OpenAI Responses API** (`OPENAI_API_KEY`) - Reddit discovery via web search tool
-- **xAI Responses API** (`XAI_API_KEY`) - X/Twitter discovery via x_search tool
-- **Reddit JSON API** (no key needed) - Thread enrichment with real engagement data
+## Testing
 
----
+Tests live in `tests/index.test.ts` (1000+ lines, Bun native test runner). Tests use `Bun.spawnSync()` to test CLI as a subprocess. The `--mock` flag enables fixture-based testing without API keys.
 
-## Downstream Consumer: research plugin
+## CI/CD
 
-The primary consumer is the **research plugin** at `~/code/side-quest-plugins/plugins/research/`. It never imports the library - it always invokes the CLI via `bunx --bun @side-quest/last-30-days`. Understanding how it's consumed matters when changing CLI output, flags, or exit codes.
+GitHub Actions with Changesets workflow:
+- PRs run lint, typecheck, build, test (`pr-quality.yml`)
+- Conventional commits enforced via commitlint
+- Merging changesets to main triggers auto-publish to npm with OIDC provenance
+- CodeQL + Trivy security scanning on schedule
 
-### How it's called
+## CLI Usage
 
-- **Sub-agents** (beat-reporter, runs on Haiku): `bunx --bun @side-quest/last-30-days "<topic>" --emit=compact [flags]` - compact output feeds into supplementary WebSearch/WebFetch queries
-- **Scripts** (ai-trends-digest): `Bun.spawn(['bunx', '--bun', '@side-quest/last-30-days', topic, '--emit=json'])` - JSON output parsed programmatically as `Report` type
+```bash
+last-30-days "topic" --days=7 --emit=json --outdir=/tmp/out --mock
+```
 
-### Output format contract
-
-| Consumer | Format | Why |
-|----------|--------|-----|
-| Beat reporter agents | `--emit=compact` | Claude-friendly markdown for synthesis |
-| Digest script | `--emit=json` | Programmatic `Report` parsing |
-| Human readers | `--emit=md` | Full markdown report |
-
-### What would break the plugin
-
-- Changing the JSON schema of `Report` (digest script parses it)
-- Changing compact output structure (beat reporters rely on section headers)
-- Removing/renaming CLI flags (hardcoded in skill docs and agent definitions)
-- Changing exit codes (script checks `exitCode !== 0`)
-
----
-
-## Code Conventions
-
-| Area | Convention |
-|------|------------|
-| Files | kebab-case (`my-util.ts`) |
-| Functions | camelCase |
-| Types | PascalCase |
-| Exports | Named only (no defaults) |
-| Formatting | Biome: tabs, single quotes, 80-char, semicolons as needed |
-
-Test files go in `tests/` directory (not co-located with source).
-
----
-
-## Git Workflow
-
-**Branch pattern:** `type/description` (e.g., `feat/add-feature`, `fix/bug-fix`)
-
-**Commit format:** Conventional Commits (enforced by commitlint + husky)
-
-**Before pushing:** Always run `bun run validate`
-
-**Pre-push hook** blocks direct pushes to main.
-
----
-
-## CI/CD Workflows
-
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `pr-quality.yml` | PR | Lint, types, tests |
-| `publish.yml` | Push to main | Version & publish via Changesets |
-| `autogenerate-changeset.yml` | PR | Auto-generate changeset if missing |
-| `commitlint.yml` | PR | Validate commit messages |
-| `security.yml` | Schedule/PR | CodeQL + Trivy scans |
-
----
-
-## Special Rules
-
-### ALWAYS
-
-1. Run `bun run validate` before pushing
-2. Create changesets for user-facing changes (`bun version:gen`)
-3. Use named exports (no defaults)
-
-### NEVER
-
-1. Push directly to main (pre-push hook blocks)
-2. Skip validation before commits
-3. Use destructive git commands (`reset --hard`, `push --force`)
-4. Create nested `biome.json` files - single root config only
+Config lives at `~/.config/last-30-days/.env` (OPENAI_API_KEY, XAI_API_KEY).
