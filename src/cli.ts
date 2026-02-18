@@ -14,6 +14,8 @@
  *   --deep           Comprehensive research with more sources
  *   --debug          Enable verbose debug logging
  *   --include-web    Include general web search alongside Reddit/X
+ *   --strategy=MODE  Search strategy: single|two-phase (default: single)
+ *   --phase2-budget=N Max supplemental queries per source (default: 5)
  *   --refresh        Bypass cache reads and force fresh search
  *   --no-cache       Disable cache reads and writes
  *   --outdir=PATH    Write output files to PATH instead of default location
@@ -77,6 +79,10 @@ Options:
   --refresh        Bypass cache reads and force fresh search
   --no-cache       Disable cache reads and writes
   --outdir=PATH    Write output files to PATH instead of default location
+  --strategy=MODE  Search strategy (default: single)
+                     single     Phase 1 only (backward-compatible)
+                     two-phase  Phase 1 + entity-driven supplemental
+  --phase2-budget=N  Max supplemental queries per source (default: 5, range: 1-50)
   --mock           Use fixture data instead of real API calls
   --debug          Enable verbose debug logging
   -h, --help       Show this help message
@@ -116,6 +122,8 @@ function parseArgs(args: string[]) {
 	let noCache = false
 	let days = 30
 	let outdir = ''
+	let strategy = 'single'
+	let phase2Budget = 5
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i]!
@@ -169,6 +177,22 @@ function parseArgs(args: string[]) {
 				outdir = value
 				i += 1
 			}
+		} else if (arg.startsWith('--strategy=')) {
+			strategy = arg.slice('--strategy='.length)
+		} else if (arg === '--strategy') {
+			const value = args[i + 1]
+			if (value && !value.startsWith('-')) {
+				strategy = value
+				i += 1
+			}
+		} else if (arg.startsWith('--phase2-budget=')) {
+			phase2Budget = Number(arg.slice('--phase2-budget='.length))
+		} else if (arg === '--phase2-budget') {
+			const value = args[i + 1]
+			if (value && !value.startsWith('-')) {
+				phase2Budget = Number(value)
+				i += 1
+			}
 		} else if (arg.startsWith('--')) {
 			process.stderr.write(`Error: Unknown flag: ${arg}\n`)
 			process.stderr.write('Run last-30-days --help for usage.\n')
@@ -194,6 +218,25 @@ function parseArgs(args: string[]) {
 		process.exit(1)
 	}
 
+	const validStrategies = ['single', 'two-phase']
+	if (!validStrategies.includes(strategy)) {
+		process.stderr.write(
+			`Error: Invalid --strategy value: "${strategy}". Valid: ${validStrategies.join(', ')}\n`,
+		)
+		process.exit(1)
+	}
+
+	if (
+		!Number.isInteger(phase2Budget) ||
+		phase2Budget < 1 ||
+		phase2Budget > 50
+	) {
+		process.stderr.write(
+			'Error: --phase2-budget must be an integer between 1 and 50.\n',
+		)
+		process.exit(1)
+	}
+
 	return {
 		topic,
 		mock,
@@ -207,6 +250,8 @@ function parseArgs(args: string[]) {
 		noCache,
 		days,
 		outdir,
+		strategy,
+		phase2Budget,
 	}
 }
 
@@ -535,6 +580,16 @@ async function main() {
 
 	if (args.debug) {
 		process.env.LAST_30_DAYS_DEBUG = '1'
+		process.stderr.write(
+			`[debug] strategy=${args.strategy} phase2Budget=${args.phase2Budget}\n`,
+		)
+	}
+
+	// Two-phase strategy warning -- adapter wrappers not yet available
+	if (args.strategy === 'two-phase') {
+		process.stderr.write(
+			'Warning: Two-phase strategy not yet implemented, falling back to single-phase.\n',
+		)
 	}
 
 	// Validate --days
