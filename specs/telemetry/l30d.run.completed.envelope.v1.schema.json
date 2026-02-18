@@ -1,0 +1,34 @@
+{
+	"$id": "https://side-quest.dev/schemas/l30d/l30d.run.completed.envelope.v1.json",
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "L30D Run Completed Event Envelope v1",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"schemaVersion",
+		"id",
+		"timestamp",
+		"type",
+		"app",
+		"appRoot",
+		"source",
+		"correlationId",
+		"data"
+	],
+	"properties": {
+		"schemaVersion": { "const": "1.0.0" },
+		"id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{8,64}$" },
+		"timestamp": { "type": "string", "format": "date-time" },
+		"type": { "const": "l30d.run.completed" },
+		"app": { "const": "last-30-days" },
+		"appRoot": { "type": "string", "minLength": 1 },
+		"source": { "const": "cli" },
+		"correlationId": {
+			"type": "string",
+			"pattern": "^[a-f0-9]{8}$|^[A-Za-z0-9_-]{8,64}$"
+		},
+		"data": {
+			"$ref": "./run-completed-data.v1.schema.json"
+		}
+	}
+}

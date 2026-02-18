@@ -1,0 +1,195 @@
+{
+	"schemaVersion": "1.0.0",
+	"id": "evt_01hyl30dabc",
+	"timestamp": "2026-02-18T11:12:13.000Z",
+	"type": "l30d.run.completed",
+	"app": "last-30-days",
+	"appRoot": "/Users/nathanvale/code/side-quest-last-30-days",
+	"source": "cli",
+	"correlationId": "a1b2c3d4",
+	"data": {
+		"contract_version": "l30d.run.completed.v1",
+		"run_id": "run_20260218_111213",
+		"topic": "ai coding agents",
+		"query_type": "NEWS",
+		"strategy": "two-phase",
+		"depth": "default",
+		"days": 30,
+		"range": {
+			"from": "2026-01-19",
+			"to": "2026-02-18"
+		},
+		"started_at": "2026-02-18T11:11:01.000Z",
+		"completed_at": "2026-02-18T11:12:13.000Z",
+		"duration_ms": 72000,
+		"status": "success",
+		"sources_requested": ["reddit", "x", "youtube", "web"],
+		"sources_executed": ["reddit", "x", "youtube"],
+		"sources_skipped": [
+			{
+				"source": "web",
+				"reason_code": "disabled_by_flag",
+				"message": "Web was host-delegated for this run."
+			}
+		],
+		"phase2": {
+			"enabled": true,
+			"executed": true,
+			"budget_total": 4,
+			"budget_used": 3,
+			"skipped_reason": null
+		},
+		"counts": {
+			"raw_candidates_total": 58,
+			"final_total": 32,
+			"by_source": {
+				"reddit": 12,
+				"x": 15,
+				"youtube": 5,
+				"web": 0
+			}
+		},
+		"latency": {
+			"phase1_ms": 41000,
+			"phase2_ms": 17000,
+			"scoring_ms": 900,
+			"total_ms": 58900
+		},
+		"cost": {
+			"estimated_total_usd": 0.43,
+			"by_provider": {
+				"openai": 0.22,
+				"xai": 0.21,
+				"youtube": 0,
+				"web": 0
+			}
+		},
+		"top_trends": [
+			{
+				"trend_id": "trend.openai-codex",
+				"entity": "OpenAI Codex",
+				"category": "product",
+				"rank": 1,
+				"score": 91,
+				"delta_score": 12,
+				"source_count": 3,
+				"sources": ["reddit", "x", "youtube"],
+				"evidence_urls": [
+					"https://www.reddit.com/r/LocalLLaMA/comments/abc123/",
+					"https://x.com/example/status/1234567890",
+					"https://www.youtube.com/watch?v=abcde12345"
+				],
+				"summary": "Codex workflows are getting adopted for multi-step repo automation.",
+				"confidence": {
+					"schema_version": "confidence.v1",
+					"calculation_version": "conf-v1",
+					"score": 87,
+					"label": "high",
+					"factors": {
+						"freshness": 80,
+						"source_confirmation": 90,
+						"citation_validity": 95,
+						"data_completeness": 82,
+						"execution_health": 88
+					},
+					"weights": {
+						"freshness": 0.3,
+						"source_confirmation": 0.25,
+						"citation_validity": 0.25,
+						"data_completeness": 0.1,
+						"execution_health": 0.1
+					},
+					"reason_codes": [],
+					"explanation": "Strong multi-source agreement with fresh, verifiable evidence."
+				}
+			},
+			{
+				"trend_id": "trend.repo-benchmarking",
+				"entity": "agent benchmark harnesses",
+				"category": "topic",
+				"rank": 2,
+				"score": 78,
+				"delta_score": 6,
+				"source_count": 2,
+				"sources": ["reddit", "x"],
+				"evidence_urls": [
+					"https://www.reddit.com/r/ChatGPTCoding/comments/def456/",
+					"https://x.com/example/status/987654321"
+				],
+				"summary": "Teams are standardizing replay-based evals for regression control.",
+				"confidence": {
+					"schema_version": "confidence.v1",
+					"calculation_version": "conf-v1",
+					"score": 72,
+					"label": "medium",
+					"factors": {
+						"freshness": 70,
+						"source_confirmation": 66,
+						"citation_validity": 88,
+						"data_completeness": 74,
+						"execution_health": 80
+					},
+					"weights": {
+						"freshness": 0.3,
+						"source_confirmation": 0.25,
+						"citation_validity": 0.25,
+						"data_completeness": 0.1,
+						"execution_health": 0.1
+					},
+					"reason_codes": [],
+					"explanation": "Good evidence with moderate source diversity."
+				}
+			}
+		],
+		"data_quality": {
+			"schema_version": "data_quality.v1",
+			"computation_version": "dq-v1",
+			"total_items": 32,
+			"dated_items": 30,
+			"undated_items": 2,
+			"in_range_items": 27,
+			"fresh_72h_items": 21,
+			"trends_total": 10,
+			"multi_source_trends": 6,
+			"citations_checked": 24,
+			"citations_resolvable": 23,
+			"rate_limited_source_count": 0,
+			"partial_source_failure_count": 0,
+			"stale_cache_used": false,
+			"stale_cache_age_hours": null,
+			"execution_health_score": 100,
+			"ratios": {
+				"dated_ratio": 0.9375,
+				"in_range_ratio": 0.84375,
+				"fresh_72h_ratio": 0.65625,
+				"multi_source_trend_ratio": 0.6,
+				"citation_resolvable_ratio": 0.9583333333
+			},
+			"quality_score": 78,
+			"quality_grade": "B"
+		},
+		"confidence": {
+			"schema_version": "confidence.v1",
+			"calculation_version": "conf-v1",
+			"score": 78,
+			"label": "medium",
+			"factors": {
+				"freshness": 67,
+				"source_confirmation": 60,
+				"citation_validity": 96,
+				"data_completeness": 84,
+				"execution_health": 100
+			},
+			"weights": {
+				"freshness": 0.3,
+				"source_confirmation": 0.25,
+				"citation_validity": 0.25,
+				"data_completeness": 0.1,
+				"execution_health": 0.1
+			},
+			"reason_codes": [],
+			"explanation": "Mostly fresh and well-cited with strong execution health."
+		},
+		"warnings": ["Web source was not executed for this run."]
+	}
+}
