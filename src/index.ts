@@ -5,6 +5,9 @@
  * Engagement-ranked results with scoring and deduplication.
  */
 
+// Briefing
+export type { Briefing, BriefingPeriod } from './lib/briefing.js'
+export { generateBriefing, renderBriefingMarkdown } from './lib/briefing.js'
 // Cache
 export {
 	acquireCacheLock,
@@ -45,6 +48,16 @@ export {
 	jaccardSimilarity,
 	normalizeText,
 } from './lib/dedupe.js'
+// Delta detection
+export type { DeltaEntry, DeltaReport } from './lib/delta.js'
+export {
+	computeDelta,
+	detectFallingVoices,
+	detectGoneEntities,
+	detectNewEntities,
+	detectRisingVoices,
+	flattenEntities,
+} from './lib/delta.js'
 // Entity extraction
 export type { EntityResult, ExtractedEntity } from './lib/entity-extract.js'
 export {
