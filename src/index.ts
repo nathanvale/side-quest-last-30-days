@@ -5,11 +5,6 @@
  * Engagement-ranked results with scoring and deduplication.
  */
 
-// YouTube
-export {
-	isYtDlpAvailable,
-	searchYouTube,
-} from './adapters/youtube.js'
 // Cache
 export {
 	acquireCacheLock,
@@ -84,13 +79,6 @@ export {
 	parseRetryAfterMs,
 	RateLimitError,
 } from './lib/http.js'
-// Intent classification
-export type {
-	IntentPolicy,
-	IntentWeights,
-	QueryType as IntentQueryType,
-} from './lib/intent.js'
-export { classifyIntent, getIntentPolicy } from './lib/intent.js'
 // Models
 export { invalidateCachedModel } from './lib/models.js'
 // Normalization
@@ -116,10 +104,7 @@ export {
 } from './lib/render.js'
 export { orchestrate } from './lib/retrieval/orchestrator.js'
 export type { QueryBudget } from './lib/retrieval/query-policy.js'
-export {
-	applyIntentPolicy,
-	getQueryBudget,
-} from './lib/retrieval/query-policy.js'
+export { getQueryBudget } from './lib/retrieval/query-policy.js'
 // Retrieval contracts
 export type {
 	AdapterSearchConfig,
@@ -158,8 +143,6 @@ export {
 	scoreYouTubeItems,
 	sortItems,
 } from './lib/score.js'
-// Store
-export { closeDb, getDb, getDbPath, initDb } from './lib/store.js'
 // Telemetry contract types
 export type {
 	ConfidenceFactorsV1,
@@ -196,19 +179,6 @@ export {
 	sourceDiversityBonus,
 	trendScore,
 } from './lib/trend.js'
-// Watchlist
-export type {
-	RunHistoryEntry,
-	RunResult,
-	WatchlistTopic,
-} from './lib/watchlist.js'
-export {
-	addTopic,
-	getHistory,
-	listTopics,
-	recordRun,
-	removeTopic,
-} from './lib/watchlist.js'
 // WebSearch
 export {
 	extractDateFromSnippet,
@@ -221,8 +191,9 @@ export {
 } from './lib/websearch.js'
 // xAI X
 export { parseXResponse } from './lib/xai-x.js'
+// YouTube
 export {
+	isYtDlpAvailable,
 	parseYouTubeResults,
-	parseYtDlpJsonLines,
 	youtubeEngagementScore,
 } from './lib/youtube.js'
