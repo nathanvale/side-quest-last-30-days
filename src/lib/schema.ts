@@ -44,6 +44,8 @@ export interface RedditItem {
 	why_relevant: string
 	subs: SubScores
 	score: number
+	trend_score?: number
+	momentum?: number
 }
 
 /** Normalized X item. */
@@ -59,6 +61,8 @@ export interface XItem {
 	why_relevant: string
 	subs: SubScores
 	score: number
+	trend_score?: number
+	momentum?: number
 }
 
 /** Normalized YouTube video item. */
@@ -78,6 +82,8 @@ export interface YouTubeItem {
 	why_relevant: string
 	subs: SubScores
 	score: number
+	trend_score?: number
+	momentum?: number
 }
 
 /** Normalized web search item (no engagement metrics). */
@@ -93,6 +99,8 @@ export interface WebSearchItem {
 	why_relevant: string
 	subs: SubScores
 	score: number
+	trend_score?: number
+	momentum?: number
 }
 
 /** Full research report. */
