@@ -87,6 +87,25 @@ export interface YouTubeItem {
 	momentum?: number
 }
 
+/** Normalized YouTube video item. */
+export interface YouTubeItem {
+	id: string
+	title: string
+	url: string
+	channel: string
+	date: string | null
+	date_confidence: string
+	views: number
+	likes: number
+	comments: number
+	transcript_snippet: string
+	engagement: Engagement | null
+	relevance: number
+	why_relevant: string
+	subs: SubScores
+	score: number
+}
+
 /** Normalized web search item (no engagement metrics). */
 export interface WebSearchItem {
 	id: string
