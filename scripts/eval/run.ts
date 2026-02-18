@@ -4,9 +4,31 @@
  * Runs CLI with --mock for each topic, computes KPIs, outputs scorecard.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// ---------------------------------------------------------------------------
+// Mode parsing: --mode=pr|full|baseline-update (default: full for backward compat)
+// ---------------------------------------------------------------------------
+type EvalMode = 'pr' | 'full' | 'baseline-update'
+
+function parseMode(): EvalMode {
+	const modeArg = process.argv.find((a) => a.startsWith('--mode='))
+	if (!modeArg) return 'full'
+	const value = modeArg.slice('--mode='.length)
+	const valid: EvalMode[] = ['pr', 'full', 'baseline-update']
+	if (!valid.includes(value as EvalMode)) {
+		console.error(
+			`Error: Invalid --mode value: "${value}". Valid: ${valid.join(', ')}`,
+		)
+		process.exit(1)
+	}
+	return value as EvalMode
+}
+
+const MODE = parseMode()
+
 import {
 	citationValidity,
 	performanceP95,
@@ -206,6 +228,73 @@ const allPassed = Object.values(scorecard.passed).every(Boolean)
 // Output scorecard as JSON to stdout
 console.log(JSON.stringify(scorecard, null, '\t'))
 
+// ---------------------------------------------------------------------------
+// Mode-specific exit behavior
+// ---------------------------------------------------------------------------
+const BASELINE_PATH = join(ROOT, 'fixtures', 'eval', 'baseline.json')
+
+if (MODE === 'baseline-update') {
+	writeFileSync(BASELINE_PATH, `${JSON.stringify(scorecard, null, '\t')}\n`)
+	console.error(`\nBaseline updated: ${BASELINE_PATH}`)
+	process.exit(0)
+}
+
+if (MODE === 'pr') {
+	// Compare each KPI against baseline -- fail only on regression
+	let baseline: typeof scorecard.kpis | null = null
+	try {
+		const raw = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')) as {
+			kpis: typeof scorecard.kpis
+		}
+		baseline = raw.kpis
+	} catch {
+		console.error('\nNo baseline found -- skipping regression check, passing.')
+		process.exit(0)
+	}
+
+	const threshold = THRESHOLDS.regressionSafetyThreshold
+	const regressions: string[] = []
+
+	// Higher-is-better KPIs: fail if current < baseline - threshold
+	for (const key of [
+		'runReliability',
+		'avgCitationValidity',
+		'avgTrendRecallAt10',
+		'avgOracleRecall',
+	] as const) {
+		const current = scorecard.kpis[key]
+		const base = baseline[key]
+		if (!regressionSafety(current, base, threshold)) {
+			regressions.push(
+				`${key}: ${base.toFixed(3)} -> ${current.toFixed(3)} (drop > ${threshold})`,
+			)
+		}
+	}
+
+	// Lower-is-better KPI: fail if current > baseline + tolerance
+	{
+		const current = scorecard.kpis.performanceP95Seconds
+		const base = baseline.performanceP95Seconds
+		// Allow 10% tolerance on p95 timing
+		const timingTolerance = Math.max(base * 0.1, 1)
+		if (current > base + timingTolerance) {
+			regressions.push(
+				`performanceP95Seconds: ${base.toFixed(2)}s -> ${current.toFixed(2)}s (exceeds tolerance)`,
+			)
+		}
+	}
+
+	if (regressions.length > 0) {
+		console.error('\nEval PR check FAILED -- regressions detected:')
+		for (const r of regressions) console.error(`  - ${r}`)
+		process.exit(1)
+	}
+
+	console.error('\nEval PR check PASSED -- no regressions from baseline.')
+	process.exit(0)
+}
+
+// MODE === 'full' -- original absolute-threshold behavior
 if (!allPassed) {
 	console.error('\nEval FAILED -- some thresholds not met.')
 	const failures = Object.entries(scorecard.passed)
