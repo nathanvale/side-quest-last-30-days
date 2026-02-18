@@ -211,3 +211,300 @@ describe('retrieval/orchestrator', () => {
 		expect(results[0]!.durationMs).toBe(150)
 	})
 })
+
+// ---------------------------------------------------------------------------
+// orchestrator.ts -- phase 2
+// ---------------------------------------------------------------------------
+
+/** Create a mock adapter with searchSupplemental support. */
+function supplementalAdapter(
+	sourceType: 'reddit' | 'x' | 'web' | 'youtube',
+	phase1Items: PhaseResult['items'] = [],
+	supplementalItems: PhaseResult['items'] = [],
+): SearchAdapter {
+	return {
+		sourceType,
+		search: async () => ({
+			items: phase1Items,
+			source: sourceType,
+			phase: 1 as const,
+			error: null,
+			fromCache: false,
+			cacheAgeHours: null,
+			durationMs: 10,
+		}),
+		searchSupplemental: async (_config, _entity, _entityType) => ({
+			items: supplementalItems,
+			source: sourceType,
+			phase: 2 as const,
+			error: null,
+			fromCache: false,
+			cacheAgeHours: null,
+			durationMs: 5,
+		}),
+	}
+}
+
+/** Create a supplemental adapter that throws on phase 2. */
+function failingSupplementalAdapter(
+	sourceType: 'reddit' | 'x',
+	phase1Items: PhaseResult['items'] = [],
+): SearchAdapter {
+	return {
+		sourceType,
+		search: async () => ({
+			items: phase1Items,
+			source: sourceType,
+			phase: 1 as const,
+			error: null,
+			fromCache: false,
+			cacheAgeHours: null,
+			durationMs: 10,
+		}),
+		searchSupplemental: async () => {
+			throw new Error(`${sourceType} supplemental failed`)
+		},
+	}
+}
+
+/** Reddit items that extractEntities can pull subreddits from. */
+const REDDIT_ITEMS_WITH_ENTITIES = [
+	{
+		id: 'r1',
+		title: 'Claude Code is amazing',
+		url: 'https://reddit.com/r/localllama/1',
+		subreddit: 'localllama',
+		date: '2026-01-15',
+		date_confidence: 'high',
+		engagement: { score: 100, comments: 50, upvote_ratio: 0.95 },
+		top_comments: [],
+		comment_insights: [],
+		relevance: 0.9,
+		why_relevant: 'test',
+		subs: { relevance: 90, recency: 50, engagement: 80 },
+		score: 75,
+	},
+	{
+		id: 'r2',
+		title: 'AI models comparison',
+		url: 'https://reddit.com/r/machinelearning/2',
+		subreddit: 'machinelearning',
+		date: '2026-01-16',
+		date_confidence: 'high',
+		engagement: { score: 200, comments: 80, upvote_ratio: 0.92 },
+		top_comments: [],
+		comment_insights: [],
+		relevance: 0.8,
+		why_relevant: 'test',
+		subs: { relevance: 80, recency: 60, engagement: 90 },
+		score: 80,
+	},
+]
+
+/** X items that extractEntities can pull handles from. */
+const X_ITEMS_WITH_ENTITIES = [
+	{
+		id: 'x1',
+		text: 'Great work by @anthropicai on Claude',
+		author_handle: '@testuser',
+		date: '2026-01-15',
+		date_confidence: 'high',
+		engagement: { likes: 500, retweets: 100 },
+		relevance: 0.9,
+		why_relevant: 'test',
+		subs: { relevance: 90, recency: 50, engagement: 85 },
+		score: 80,
+	},
+	{
+		id: 'x2',
+		text: '@openai just released a new model',
+		author_handle: '@airesearcher',
+		date: '2026-01-16',
+		date_confidence: 'high',
+		engagement: { likes: 300, retweets: 60 },
+		relevance: 0.85,
+		why_relevant: 'test',
+		subs: { relevance: 85, recency: 60, engagement: 70 },
+		score: 75,
+	},
+]
+
+describe('retrieval/orchestrator phase 2', () => {
+	test('strategy=single skips phase 2', async () => {
+		const adapter = supplementalAdapter('reddit', REDDIT_ITEMS_WITH_ENTITIES, [
+			{ ...REDDIT_ITEMS_WITH_ENTITIES[0]!, id: 'r-supp' },
+		])
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'single' as const,
+		}
+		const results = await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		// Only phase 1 results
+		expect(results).toHaveLength(1)
+		expect(results[0]!.phase).toBe(1)
+	})
+
+	test('two-phase with no searchSupplemental returns phase 1 only', async () => {
+		const adapter = mockAdapter('reddit', REDDIT_ITEMS_WITH_ENTITIES)
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'two-phase' as const,
+		}
+		const results = await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		// No adapters support supplemental, so only phase 1
+		expect(results).toHaveLength(1)
+		expect(results.every((r) => r.phase === 1)).toBe(true)
+	})
+
+	test('two-phase with supplemental adapter returns phase 1 + phase 2', async () => {
+		const suppItem = {
+			...REDDIT_ITEMS_WITH_ENTITIES[0]!,
+			id: 'r-supplemental',
+		}
+		const adapter = supplementalAdapter('reddit', REDDIT_ITEMS_WITH_ENTITIES, [suppItem])
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'two-phase' as const,
+		}
+		const results = await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		// Phase 1 + at least one phase 2 result
+		const phase1 = results.filter((r) => r.phase === 1)
+		const phase2 = results.filter((r) => r.phase === 2)
+		expect(phase1).toHaveLength(1)
+		expect(phase2.length).toBeGreaterThan(0)
+		// Phase 2 results should contain our supplemental items
+		expect(phase2[0]!.source).toBe('reddit')
+	})
+
+	test('phase2Budget limits number of supplemental queries', async () => {
+		let supplementalCallCount = 0
+		const adapter: SearchAdapter = {
+			sourceType: 'reddit',
+			search: async () => ({
+				items: REDDIT_ITEMS_WITH_ENTITIES,
+				source: 'reddit' as const,
+				phase: 1 as const,
+				error: null,
+				fromCache: false,
+				cacheAgeHours: null,
+				durationMs: 10,
+			}),
+			searchSupplemental: async () => {
+				supplementalCallCount += 1
+				return {
+					items: [],
+					source: 'reddit' as const,
+					phase: 2 as const,
+					error: null,
+					fromCache: false,
+					cacheAgeHours: null,
+					durationMs: 5,
+				}
+			},
+		}
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'two-phase' as const,
+			phase2Budget: 1,
+		}
+		await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		// With budget=1, only 1 supplemental call should be made
+		// even though there are 2 subreddits in the items
+		expect(supplementalCallCount).toBe(1)
+	})
+
+	test('phase 2 failure does not affect phase 1 results', async () => {
+		const adapter = failingSupplementalAdapter('reddit', REDDIT_ITEMS_WITH_ENTITIES)
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'two-phase' as const,
+		}
+		const results = await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		const phase1 = results.filter((r) => r.phase === 1)
+		const phase2 = results.filter((r) => r.phase === 2)
+
+		// Phase 1 should be intact
+		expect(phase1).toHaveLength(1)
+		expect(phase1[0]!.error).toBeNull()
+		expect(phase1[0]!.items).toHaveLength(2)
+
+		// Phase 2 should have error results but not crash
+		expect(phase2.length).toBeGreaterThan(0)
+		for (const r of phase2) {
+			expect(r.error).toContain('supplemental failed')
+		}
+	})
+
+	test('X adapter gets handles for phase 2', async () => {
+		const receivedEntities: string[] = []
+		const adapter: SearchAdapter = {
+			sourceType: 'x',
+			search: async () => ({
+				items: X_ITEMS_WITH_ENTITIES,
+				source: 'x' as const,
+				phase: 1 as const,
+				error: null,
+				fromCache: false,
+				cacheAgeHours: null,
+				durationMs: 10,
+			}),
+			searchSupplemental: async (_config, entity) => {
+				receivedEntities.push(entity)
+				return {
+					items: [],
+					source: 'x' as const,
+					phase: 2 as const,
+					error: null,
+					fromCache: false,
+					cacheAgeHours: null,
+					durationMs: 5,
+				}
+			},
+		}
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'two-phase' as const,
+			phase2Budget: 10,
+		}
+		await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		// Should receive handle entities (@ prefixed values)
+		expect(receivedEntities.length).toBeGreaterThan(0)
+		expect(receivedEntities.every((e) => e.startsWith('@'))).toBe(true)
+	})
+
+	test('empty phase 1 items produce no phase 2 queries', async () => {
+		let supplementalCalled = false
+		const adapter: SearchAdapter = {
+			sourceType: 'reddit',
+			search: async () => ({
+				items: [],
+				source: 'reddit' as const,
+				phase: 1 as const,
+				error: null,
+				fromCache: false,
+				cacheAgeHours: null,
+				durationMs: 10,
+			}),
+			searchSupplemental: async () => {
+				supplementalCalled = true
+				return {
+					items: [],
+					source: 'reddit' as const,
+					phase: 2 as const,
+					error: null,
+					fromCache: false,
+					cacheAgeHours: null,
+					durationMs: 5,
+				}
+			},
+		}
+		const orchConfig = {
+			...defaultOrchestratorConfig(),
+			strategy: 'two-phase' as const,
+		}
+		const results = await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
+		expect(supplementalCalled).toBe(false)
+		// Only phase 1
+		expect(results).toHaveLength(1)
+	})
+})
