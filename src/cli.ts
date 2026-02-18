@@ -20,6 +20,7 @@
  *   --refresh        Bypass cache reads and force fresh search
  *   --no-cache       Disable cache reads and writes
  *   --outdir=PATH    Write output files to PATH instead of default location
+ *   --query-type=TYPE Query intent: auto|prompting|recommendations|news|general
  */
 
 import { readFileSync } from 'node:fs'
@@ -35,6 +36,8 @@ import * as config from './lib/config.js'
 import { getDateRange } from './lib/dates.js'
 import * as dedupe from './lib/dedupe.js'
 import { RateLimitError } from './lib/http.js'
+import type { QueryType } from './lib/intent.js'
+import { classifyIntent, getIntentPolicy } from './lib/intent.js'
 import * as models from './lib/models.js'
 import * as normalize from './lib/normalize.js'
 import * as openaiReddit from './lib/openai-reddit.js'
@@ -91,6 +94,12 @@ Options:
                      single     Phase 1 only (backward-compatible)
                      two-phase  Phase 1 + entity-driven supplemental
   --phase2-budget=N  Max supplemental queries per source (default: 5, range: 1-50)
+  --query-type=TYPE  Query intent (default: auto)
+                       auto            Auto-detect from topic
+                       prompting       Optimized for how-to/technique queries
+                       recommendations Best-of/comparison queries
+                       news            Breaking/latest queries
+                       general         Default balanced weights
   --mock           Use fixture data instead of real API calls
   --debug          Enable verbose debug logging
   -h, --help       Show this help message
@@ -133,6 +142,7 @@ function parseArgs(args: string[]) {
 	let outdir = ''
 	let strategy = 'single'
 	let phase2Budget = 5
+	let queryType = 'auto'
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i]!
@@ -206,6 +216,14 @@ function parseArgs(args: string[]) {
 				phase2Budget = Number(value)
 				i += 1
 			}
+		} else if (arg.startsWith('--query-type=')) {
+			queryType = arg.slice('--query-type='.length)
+		} else if (arg === '--query-type') {
+			const value = args[i + 1]
+			if (value && !value.startsWith('-')) {
+				queryType = value
+				i += 1
+			}
 		} else if (arg.startsWith('--')) {
 			process.stderr.write(`Error: Unknown flag: ${arg}\n`)
 			process.stderr.write('Run last-30-days --help for usage.\n')
@@ -250,6 +268,20 @@ function parseArgs(args: string[]) {
 		process.exit(1)
 	}
 
+	const validQueryTypes = [
+		'auto',
+		'prompting',
+		'recommendations',
+		'news',
+		'general',
+	]
+	if (!validQueryTypes.includes(queryType)) {
+		process.stderr.write(
+			`Error: Invalid --query-type value: "${queryType}". Valid: ${validQueryTypes.join(', ')}\n`,
+		)
+		process.exit(1)
+	}
+
 	return {
 		topic,
 		mock,
@@ -266,6 +298,7 @@ function parseArgs(args: string[]) {
 		outdir,
 		strategy,
 		phase2Budget,
+		queryType,
 	}
 }
 
@@ -628,6 +661,19 @@ async function main() {
 		process.exit(1)
 	}
 
+	// Resolve intent classification
+	const resolvedQueryType: QueryType =
+		args.queryType === 'auto'
+			? classifyIntent(args.topic)
+			: (args.queryType as QueryType)
+	const intentPolicy = getIntentPolicy(resolvedQueryType)
+
+	if (args.debug) {
+		process.stderr.write(
+			`[debug] query-type=${resolvedQueryType} (input: ${args.queryType})\n`,
+		)
+	}
+
 	// Load config
 	const cfg = config.getConfig()
 	const available = config.getAvailableSources(cfg)
@@ -953,16 +999,24 @@ async function main() {
 		...filteredX,
 		...filteredYouTube,
 	])
+	const scoreOpts = { intentWeights: intentPolicy.weights }
 	const scoredReddit = score.scoreRedditItems(
 		filteredReddit,
 		args.days,
 		trendScores,
+		scoreOpts,
 	)
-	const scoredX = score.scoreXItems(filteredX, args.days, trendScores)
+	const scoredX = score.scoreXItems(
+		filteredX,
+		args.days,
+		trendScores,
+		scoreOpts,
+	)
 	const scoredYouTube = score.scoreYouTubeItems(
 		filteredYouTube,
 		args.days,
 		trendScores,
+		scoreOpts,
 	)
 
 	const sortedReddit = score.sortItems(scoredReddit)
