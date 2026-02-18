@@ -1,6 +1,6 @@
 /** Near-duplicate detection for last-30-days skill. */
 
-import type { RedditItem, WebSearchItem, XItem } from './schema.js'
+import type { RedditItem, WebSearchItem, XItem, YouTubeItem } from './schema.js'
 
 /**
  * Normalize text for comparison.
@@ -101,6 +101,22 @@ export function dedupeReddit(
 /** Dedupe X items. */
 export function dedupeX(items: XItem[], threshold = 0.7): XItem[] {
 	return dedupeItems(items, threshold)
+}
+
+/** Dedupe YouTube items by URL (titles are unreliable). */
+export function dedupeYouTube(items: YouTubeItem[]): YouTubeItem[] {
+	const seenUrls = new Set<string>()
+	const result: YouTubeItem[] = []
+
+	for (const item of items) {
+		const urlKey = item.url.toLowerCase().replace(/\/+$/, '')
+		if (!seenUrls.has(urlKey)) {
+			seenUrls.add(urlKey)
+			result.push(item)
+		}
+	}
+
+	return result
 }
 
 /** Remove duplicate WebSearch items by URL. */

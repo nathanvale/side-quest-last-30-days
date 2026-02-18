@@ -61,6 +61,25 @@ export interface XItem {
 	score: number
 }
 
+/** Normalized YouTube video item. */
+export interface YouTubeItem {
+	id: string
+	title: string
+	url: string
+	channel: string
+	date: string | null
+	date_confidence: string
+	views: number
+	likes: number
+	comments: number
+	transcript_snippet: string
+	engagement: Engagement | null
+	relevance: number
+	why_relevant: string
+	subs: SubScores
+	score: number
+}
+
 /** Normalized web search item (no engagement metrics). */
 export interface WebSearchItem {
 	id: string
@@ -89,12 +108,14 @@ export interface Report {
 	reddit: RedditItem[]
 	x: XItem[]
 	web: WebSearchItem[]
+	youtube: YouTubeItem[]
 	best_practices: string[]
 	prompt_pack: string[]
 	context_snippet_md: string
 	reddit_error: string | null
 	x_error: string | null
 	web_error: string | null
+	youtube_error: string | null
 	from_cache: boolean
 	cache_age_hours: number | null
 }
@@ -138,9 +159,12 @@ export function reportToDict(report: Report): Record<string, unknown> {
 		prompt_pack: report.prompt_pack,
 		context_snippet_md: report.context_snippet_md,
 	}
+	// YouTube is opt-in: only include in output when items or error present
+	if (report.youtube.length > 0) d.youtube = report.youtube
 	if (report.reddit_error) d.reddit_error = report.reddit_error
 	if (report.x_error) d.x_error = report.x_error
 	if (report.web_error) d.web_error = report.web_error
+	if (report.youtube_error) d.youtube_error = report.youtube_error
 	if (report.from_cache) d.from_cache = report.from_cache
 	if (report.cache_age_hours != null) d.cache_age_hours = report.cache_age_hours
 	return d
@@ -195,6 +219,31 @@ export function defaultXItem(
 	}
 }
 
+/** Create a default YouTubeItem. */
+export function defaultYouTubeItem(
+	partial: Partial<YouTubeItem> & {
+		id: string
+		title: string
+		url: string
+		channel: string
+	},
+): YouTubeItem {
+	return {
+		date: null,
+		date_confidence: 'low',
+		views: 0,
+		likes: 0,
+		comments: 0,
+		transcript_snippet: '',
+		engagement: null,
+		relevance: 0.5,
+		why_relevant: '',
+		subs: defaultSubScores(),
+		score: 0,
+		...partial,
+	}
+}
+
 /** Create a default WebSearchItem. */
 export function defaultWebSearchItem(
 	partial: Partial<WebSearchItem> & {
@@ -238,12 +287,14 @@ export function createReport(
 		reddit: [],
 		x: [],
 		web: [],
+		youtube: [],
 		best_practices: [],
 		prompt_pack: [],
 		context_snippet_md: '',
 		reddit_error: null,
 		x_error: null,
 		web_error: null,
+		youtube_error: null,
 		from_cache: false,
 		cache_age_hours: null,
 	}
@@ -316,6 +367,28 @@ export function reportFromDict(data: Record<string, unknown>): Report {
 		})
 	})
 
+	// YouTube items (default to [] for backward compat with old cache data)
+	const youtubeItems = ((data.youtube as unknown[]) ?? []).map((y: unknown) => {
+		const yd = y as Record<string, unknown>
+		return defaultYouTubeItem({
+			id: (yd.id as string) ?? '',
+			title: (yd.title as string) ?? '',
+			url: (yd.url as string) ?? '',
+			channel: (yd.channel as string) ?? '',
+			date: (yd.date as string | null) ?? null,
+			date_confidence: (yd.date_confidence as string) ?? 'low',
+			views: (yd.views as number) ?? 0,
+			likes: (yd.likes as number) ?? 0,
+			comments: (yd.comments as number) ?? 0,
+			transcript_snippet: (yd.transcript_snippet as string) ?? '',
+			engagement: (yd.engagement as Engagement | null) ?? null,
+			relevance: (yd.relevance as number) ?? 0.5,
+			why_relevant: (yd.why_relevant as string) ?? '',
+			subs: (yd.subs as SubScores) ?? defaultSubScores(),
+			score: (yd.score as number) ?? 0,
+		})
+	})
+
 	return {
 		topic: data.topic as string,
 		days,
@@ -328,12 +401,14 @@ export function reportFromDict(data: Record<string, unknown>): Report {
 		reddit: redditItems,
 		x: xItems,
 		web: webItems,
+		youtube: youtubeItems,
 		best_practices: (data.best_practices as string[]) ?? [],
 		prompt_pack: (data.prompt_pack as string[]) ?? [],
 		context_snippet_md: (data.context_snippet_md as string) ?? '',
 		reddit_error: (data.reddit_error as string | null) ?? null,
 		x_error: (data.x_error as string | null) ?? null,
 		web_error: (data.web_error as string | null) ?? null,
+		youtube_error: (data.youtube_error as string | null) ?? null,
 		from_cache: (data.from_cache as boolean) ?? false,
 		cache_age_hours: (data.cache_age_hours as number | null) ?? null,
 	}

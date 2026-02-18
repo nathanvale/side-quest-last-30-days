@@ -40,6 +40,7 @@ export {
 	dedupeReddit,
 	dedupeWebsearch,
 	dedupeX,
+	dedupeYouTube,
 	getNgrams,
 	jaccardSimilarity,
 	normalizeText,
@@ -85,6 +86,7 @@ export {
 	filterByDateRange,
 	normalizeRedditItems,
 	normalizeXItems,
+	normalizeYouTubeItems,
 } from './lib/normalize.js'
 // OpenAI Reddit
 export {
@@ -126,14 +128,19 @@ export type {
 	SubScores,
 	WebSearchItem,
 	XItem,
+	YouTubeItem,
 } from './lib/schema.js'
 // Schema factories
-export { createReport } from './lib/schema.js'
+export {
+	createReport,
+	defaultYouTubeItem,
+} from './lib/schema.js'
 // Scoring
 export {
 	scoreRedditItems,
 	scoreWebsearchItems,
 	scoreXItems,
+	scoreYouTubeItems,
 	sortItems,
 } from './lib/score.js'
 // Telemetry contract types
@@ -176,3 +183,9 @@ export {
 } from './lib/websearch.js'
 // xAI X
 export { parseXResponse } from './lib/xai-x.js'
+// YouTube
+export {
+	isYtDlpAvailable,
+	parseYouTubeResults,
+	youtubeEngagementScore,
+} from './lib/youtube.js'
