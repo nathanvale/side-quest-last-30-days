@@ -84,6 +84,15 @@ export type {
 	WebSearchItem,
 	XItem,
 } from './lib/schema.js'
+// Schema factories
+export { createReport } from './lib/schema.js'
+// Scoring
+export {
+	scoreRedditItems,
+	scoreWebsearchItems,
+	scoreXItems,
+	sortItems,
+} from './lib/score.js'
 // Telemetry contract types
 export type {
 	ConfidenceFactorsV1,
@@ -112,15 +121,6 @@ export type {
 	TopTrendV1,
 	TrendCategory,
 } from './lib/telemetry-contract.js'
-// Schema factories
-export { createReport } from './lib/schema.js'
-// Scoring
-export {
-	scoreRedditItems,
-	scoreWebsearchItems,
-	scoreXItems,
-	sortItems,
-} from './lib/score.js'
 // WebSearch
 export {
 	extractDateFromSnippet,
