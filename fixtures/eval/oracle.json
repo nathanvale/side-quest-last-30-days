@@ -1,0 +1,32 @@
+{
+	"Claude AI prompting techniques": {
+		"entities": ["@AnthropicAI", "r/ClaudeAI", "#claude", "system prompt", "chain of thought"]
+	},
+	"React Server Components": {
+		"entities": ["@reactjs", "r/reactjs", "#RSC", "Next.js", "server actions"]
+	},
+	"Rust vs Go 2025": {
+		"entities": ["r/rust", "r/golang", "#rustlang", "memory safety", "goroutines"]
+	},
+	"OpenAI o3 model": {
+		"entities": ["@OpenAI", "r/OpenAI", "#o3", "reasoning", "benchmark"]
+	},
+	"TypeScript 5.8 features": {
+		"entities": ["@typescript", "r/typescript", "#TypeScript", "satisfies", "decorators"]
+	},
+	"LLM fine-tuning best practices": {
+		"entities": ["r/LocalLLaMA", "#finetuning", "LoRA", "QLoRA", "Hugging Face"]
+	},
+	"Bun runtime performance": {
+		"entities": ["@bunjavascript", "r/bun", "#bunjs", "Oven", "@jarredsumner"]
+	},
+	"AI code review tools": {
+		"entities": ["Copilot", "CodeRabbit", "r/programming", "pull request", "static analysis"]
+	},
+	"WebAssembly WASI preview 2": {
+		"entities": ["@aspect_build", "r/WebAssembly", "#WASI", "component model", "Bytecode Alliance"]
+	},
+	"GitHub Copilot alternatives": {
+		"entities": ["Cursor", "Cody", "Tabnine", "r/vscode", "code completion"]
+	}
+}

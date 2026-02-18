@@ -1,0 +1,24 @@
+{
+	"generatedAt": "2026-02-18T12:29:29.788Z",
+	"topicCount": 10,
+	"kpis": {
+		"runReliability": 1,
+		"performanceP95Seconds": 0.02,
+		"avgCitationValidity": 0,
+		"avgTrendRecallAt10": 0,
+		"avgOracleRecall": 0
+	},
+	"thresholds": {
+		"citationValidity": 0.5,
+		"runReliability": 0.8,
+		"performanceP95": 120,
+		"regressionSafetyThreshold": 0.02
+	},
+	"passed": {
+		"citationValidity": false,
+		"runReliability": true,
+		"performanceP95": true,
+		"regressionSafety": true
+	},
+	"note": "Baseline with --mock mode. Mock fixtures only contain data for one hardcoded topic, so citation/recall KPIs are 0 for all eval topics. This baseline establishes the harness infrastructure -- real scores will improve once mock fixtures cover eval topics or live API keys are used."
+}
