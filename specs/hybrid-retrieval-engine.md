@@ -753,6 +753,23 @@ Governance rules:
 3. The sample fixture must remain valid against the runtime validator and formula locks.
 4. `src/lib/telemetry-contract.ts` is the TypeScript source-of-truth for implementation.
 
+## Completion Status
+
+| PR | Title | Status |
+|----|-------|--------|
+| PR-001 | Eval Harness + Oracle Baseline | Completed |
+| PR-002 | Retrieval Contracts | Completed |
+| PR-003 | Entity Extraction Module | Completed |
+| PR-004 | Two-Phase Supplemental Retrieval | Completed |
+| PR-005 | Cache/Retry Hardening for Phase 2 | Completed |
+| PR-006 | YouTube Source Adapter | Completed |
+| PR-007 | Trend-Aware Scoring Model | Completed |
+| PR-008 | Intent Classification + Query Policy | Completed |
+| PR-009 | Watchlist Persistence | Completed |
+| PR-010 | Briefing + Delta Intelligence | Completed |
+| PR-011 | Observability + SLO Guardrails | Completed |
+| PR-012 | CI Release Gates + Docs | Completed |
+
 ## PR-002 Checkpoint (e384c7e)
 
 ### Completed
