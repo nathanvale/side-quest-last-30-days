@@ -18,7 +18,7 @@
 		"entities": ["r/LocalLLaMA", "#finetuning", "LoRA", "QLoRA", "Hugging Face"]
 	},
 	"Bun runtime performance": {
-		"entities": ["@bunjavascript", "r/bun", "#bunjs", "Oven", "@jarredsumner"]
+		"entities": ["@bunaborern", "r/bun", "#bunjs", "Oven", "Jarred Sumner"]
 	},
 	"AI code review tools": {
 		"entities": ["Copilot", "CodeRabbit", "r/programming", "pull request", "static analysis"]

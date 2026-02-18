@@ -5,10 +5,6 @@ export interface EvalItem {
 	date: string | null
 	score: number
 	url: string
-	title?: string
-	text?: string
-	snippet?: string
-	content?: string
 	engagement?: {
 		score?: number | null
 		likes?: number | null
@@ -30,26 +26,6 @@ function median(sorted: number[]): number {
 	const mid = Math.floor(sorted.length / 2)
 	if (sorted.length % 2 === 1) return sorted[mid]!
 	return (sorted[mid - 1]! + sorted[mid]!) / 2
-}
-
-/**
- * Build normalized match variants for a single oracle entity so
- * handles/hashtags and multi-word terms can match URL-style text.
- */
-function toEntityVariants(entity: string): string[] {
-	const normalized = entity
-		.toLowerCase()
-		.trim()
-		.replace(/^[@#]+/, '')
-		.replace(/\s+/g, ' ')
-
-	if (!normalized) return []
-	return [
-		normalized,
-		normalized.replace(/\s+/g, '-'),
-		normalized.replace(/\s+/g, '_'),
-		encodeURIComponent(normalized),
-	]
 }
 
 /**
@@ -79,10 +55,8 @@ export function freshnessAtK(
 }
 
 /**
- * Fraction of oracle entities found in top K item text.
- * Uses a normalized corpus across url/title/snippet/content and
- * variants that handle @/# sigils and multi-word URL forms.
- * Returns 0-1.
+ * Fraction of oracle entity strings found in the top K items' URLs.
+ * Case-insensitive substring matching. Returns 0-1.
  */
 export function trendRecallAtK(
 	items: EvalItem[],
@@ -93,20 +67,8 @@ export function trendRecallAtK(
 	if (items.length === 0 || k <= 0) return 0
 	const sorted = [...items].sort((a, b) => b.score - a.score)
 	const topK = sorted.slice(0, k)
-	const corpus = topK
-		.flatMap((item) => [
-			item.url,
-			item.title ?? '',
-			item.text ?? '',
-			item.snippet ?? '',
-			item.content ?? '',
-		])
-		.map((v) => v.toLowerCase())
-		.join(' ')
-	const found = oracle.filter((entity) => {
-		const variants = toEntityVariants(entity)
-		return variants.some((variant) => corpus.includes(variant))
-	})
+	const corpus = topK.map((i) => i.url.toLowerCase()).join(' ')
+	const found = oracle.filter((entity) => corpus.includes(entity.toLowerCase()))
 	return found.length / oracle.length
 }
 
