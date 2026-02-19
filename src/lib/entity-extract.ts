@@ -308,10 +308,11 @@ export function extractHashtags(
 }
 
 /**
- * Extract repeated terms from mixed item types.
+ * Extract repeated noun phrases from mixed item types.
  *
- * Tokenizes text, removes stopwords, and returns terms that appear
- * in at least `minCount` items. No engagement weighting for terms.
+ * Builds normalized 2-3 token phrases, trims leading/trailing
+ * stopwords, and returns phrases that appear in at least `minCount`
+ * items. No engagement weighting for terms.
  *
  * @param items - Mixed array of research items
  * @param minCount - Minimum number of items a term must appear in (default: 3)
@@ -320,19 +321,67 @@ export function extractRepeatedTerms(
 	items: (RedditItem | XItem | WebSearchItem)[],
 	minCount = 3,
 ): ExtractedEntity[] {
+	const MIN_PHRASE_TOKENS = 2
+	const MAX_PHRASE_TOKENS = 3
 	const termCounts = new Map<string, number>()
 
-	for (const item of items) {
-		const text = getItemText(item)
-		const tokens = text
+	/**
+	 * Normalize raw text before phrase extraction.
+	 * Keeps tokens deterministic across punctuation and URL variants.
+	 */
+	const normalizeTermText = (text: string): string =>
+		text
 			.toLowerCase()
-			.split(/\s+/)
-			.filter((t) => t.length > 0)
-		const unique = new Set(tokens)
+			.replace(/https?:\/\/\S+/g, ' ')
+			.replace(/[@#]\w+/g, ' ')
+			.replace(/-/g, ' ')
+			.replace(/[^\w\s']/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
 
-		for (const token of unique) {
-			if (TERM_STOPWORDS.has(token)) continue
-			termCounts.set(token, (termCounts.get(token) ?? 0) + 1)
+	/** Split normalized text into token candidates. */
+	const tokenize = (text: string): string[] =>
+		normalizeTermText(text).match(/[a-z0-9]+(?:'[a-z0-9]+)*/g) ?? []
+
+	/** Drop stopwords on phrase boundaries to keep informative phrases. */
+	const trimStopwordEdges = (tokens: string[]): string[] => {
+		let start = 0
+		let end = tokens.length
+
+		while (start < end) {
+			const token = tokens[start]
+			if (token === undefined || !TERM_STOPWORDS.has(token)) break
+			start += 1
+		}
+		while (end > start) {
+			const token = tokens[end - 1]
+			if (token === undefined || !TERM_STOPWORDS.has(token)) break
+			end -= 1
+		}
+
+		return tokens.slice(start, end)
+	}
+
+	for (const item of items) {
+		const tokens = tokenize(getItemText(item))
+		const unique = new Set<string>()
+
+		for (
+			let phraseLen = MIN_PHRASE_TOKENS;
+			phraseLen <= MAX_PHRASE_TOKENS;
+			phraseLen += 1
+		) {
+			if (tokens.length < phraseLen) continue
+
+			for (let i = 0; i <= tokens.length - phraseLen; i += 1) {
+				const phraseTokens = trimStopwordEdges(tokens.slice(i, i + phraseLen))
+				if (phraseTokens.length < MIN_PHRASE_TOKENS) continue
+				unique.add(phraseTokens.join(' '))
+			}
+		}
+
+		for (const phrase of unique) {
+			termCounts.set(phrase, (termCounts.get(phrase) ?? 0) + 1)
 		}
 	}
 
