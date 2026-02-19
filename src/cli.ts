@@ -200,7 +200,9 @@ function parseArgs(args: string[]) {
 			phase2Budget = Number(arg.slice('--phase2-budget='.length))
 		} else if (arg === '--phase2-budget') {
 			const value = args[i + 1]
-			if (value && !value.startsWith('-')) {
+			if (!value || value.startsWith('-')) {
+				phase2Budget = Number.NaN
+			} else {
 				phase2Budget = Number(value)
 				i += 1
 			}
