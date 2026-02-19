@@ -27,6 +27,19 @@ export interface SearchAdapter {
 	readonly sourceType: SourceType
 	/** Execute a search and return results. */
 	search(config: AdapterSearchConfig): Promise<PhaseResult>
+	/**
+	 * Optional: run a supplemental phase 2 query for a specific entity.
+	 *
+	 * Adapters that support phase 2 implement this method to search
+	 * for a specific handle, subreddit, hashtag, or term extracted
+	 * from phase 1 results. The orchestrator only calls this on
+	 * adapters that define it.
+	 */
+	searchSupplemental?(
+		config: AdapterSearchConfig,
+		entity: string,
+		entityType: 'handle' | 'subreddit' | 'hashtag' | 'term',
+	): Promise<PhaseResult>
 }
 
 /** Configuration passed to adapter search. */

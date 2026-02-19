@@ -939,6 +939,57 @@ describe('cli', () => {
 		expect(stdout).toContain('last-30-days.context.md')
 		expect(stdout).not.toContain('/tmp/l30d-outdir')
 	})
+
+	test('--strategy=single produces same output as default', () => {
+		const defaultResult = runCli(['test topic', '--mock', '--emit=json'])
+		const singleResult = runCli(['test topic', '--mock', '--emit=json', '--strategy=single'])
+		expect(singleResult.exitCode).toBe(0)
+		const defaultJson = JSON.parse(new TextDecoder().decode(defaultResult.stdout)) as Record<
+			string,
+			unknown
+		>
+		const singleJson = JSON.parse(new TextDecoder().decode(singleResult.stdout)) as Record<
+			string,
+			unknown
+		>
+		// Remove generated_at since it varies by time
+		delete defaultJson.generated_at
+		delete singleJson.generated_at
+		expect(singleJson).toEqual(defaultJson)
+	})
+
+	test('--strategy=two-phase is accepted without crash', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json', '--strategy=two-phase'])
+		expect(result.exitCode).toBe(0)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('falling back to single-phase')
+	})
+
+	test('--phase2-budget=3 is accepted', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json', '--phase2-budget=3'])
+		expect(result.exitCode).toBe(0)
+	})
+
+	test('--strategy=invalid exits with error', () => {
+		const result = runCli(['test topic', '--mock', '--strategy=invalid'])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('Invalid --strategy')
+	})
+
+	test('--phase2-budget=0 exits with error', () => {
+		const result = runCli(['test topic', '--mock', '--phase2-budget=0'])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('--phase2-budget must be an integer')
+	})
+
+	test('--phase2-budget=abc exits with error', () => {
+		const result = runCli(['test topic', '--mock', '--phase2-budget=abc'])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('--phase2-budget must be an integer')
+	})
 })
 
 // ---------------------------------------------------------------------------
