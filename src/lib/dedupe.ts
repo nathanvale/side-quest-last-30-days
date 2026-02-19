@@ -21,6 +21,65 @@ function trimTrailingSlashes(value: string): string {
 	return value.slice(0, end)
 }
 
+/**
+ * Extract canonical YouTube video ID from common URL formats.
+ * ID case is preserved because YouTube IDs are case-sensitive.
+ */
+function extractYouTubeVideoId(url: string): string | null {
+	const trimmed = url.trim()
+	if (!trimmed) return null
+
+	try {
+		const parsed = new URL(trimmed)
+		const host = parsed.hostname.toLowerCase()
+		const pathParts = parsed.pathname.split('/').filter(Boolean)
+
+		if (host === 'youtu.be' || host.endsWith('.youtu.be')) {
+			return pathParts[0] ?? null
+		}
+
+		if (
+			host === 'youtube.com' ||
+			host === 'www.youtube.com' ||
+			host.endsWith('.youtube.com')
+		) {
+			const watchId = parsed.searchParams.get('v')
+			if (watchId) return watchId
+
+			if (pathParts.length >= 2) {
+				const [prefix, id] = pathParts
+				if (
+					(prefix === 'shorts' || prefix === 'embed' || prefix === 'live') &&
+					id
+				) {
+					return id
+				}
+			}
+		}
+	} catch {
+		// Ignore malformed URLs and fall back to non-ID keying.
+	}
+
+	return null
+}
+
+/** Build a stable dedupe key for YouTube items. */
+function youtubeDedupeKey(item: YouTubeItem): string {
+	const videoId = extractYouTubeVideoId(item.url) ?? item.id.trim()
+	if (videoId) return `video:${videoId}`
+
+	// Fallback: keep path/query case intact, but normalize host case.
+	try {
+		const parsed = new URL(item.url.trim())
+		const host = parsed.hostname.toLowerCase()
+		const path = trimTrailingSlashes(parsed.pathname)
+		const query = parsed.search ? parsed.search : ''
+		return `${host}${path}${query}`
+	} catch {
+		return trimTrailingSlashes(item.url.trim())
+	}
+}
+
 /** Get character n-grams from text. */
 export function getNgrams(text: string, n = 3): Set<string> {
 	const normalized = normalizeText(text)
@@ -110,13 +169,13 @@ export function dedupeX(items: XItem[], threshold = 0.7): XItem[] {
 	return dedupeItems(items, threshold)
 }
 
-/** Dedupe YouTube items by URL (titles are unreliable). */
+/** Dedupe YouTube items by canonical video ID (titles are unreliable). */
 export function dedupeYouTube(items: YouTubeItem[]): YouTubeItem[] {
 	const seenUrls = new Set<string>()
 	const result: YouTubeItem[] = []
 
 	for (const item of items) {
-		const urlKey = trimTrailingSlashes(item.url.toLowerCase())
+		const urlKey = youtubeDedupeKey(item)
 		if (!seenUrls.has(urlKey)) {
 			seenUrls.add(urlKey)
 			result.push(item)
