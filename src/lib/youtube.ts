@@ -1,53 +1,15 @@
 /**
- * YouTube source adapter via yt-dlp.
- *
- * Searches YouTube for recent videos about a topic, extracts
- * metadata and transcript snippets. Requires yt-dlp installed
- * as a system dependency -- gracefully degrades when not found.
+ * Pure YouTube helpers for parsing and scoring.
+ * Process-spawning and other I/O live in CLI/adapter modules.
  */
 
-/** Check if yt-dlp is available in PATH. */
-export function isYtDlpAvailable(): boolean {
-	try {
-		const result = Bun.spawnSync(['yt-dlp', '--version'], {
-			timeout: 5000,
-		})
-		return result.exitCode === 0
-	} catch {
-		return false
-	}
-}
+/** Parse line-delimited yt-dlp JSON output into objects. */
+export function parseYtDlpJsonLines(stdout: string): Record<string, unknown>[] {
+	const trimmed = stdout.trim()
+	if (!trimmed) return []
 
-/** Search YouTube for videos matching a topic. */
-export async function searchYouTube(
-	topic: string,
-	_days: number,
-	depth: string,
-): Promise<Record<string, unknown>[]> {
-	const maxResults = depth === 'quick' ? 5 : depth === 'deep' ? 20 : 10
-	const query = `ytsearch${maxResults}:${topic}`
-
-	const result = Bun.spawnSync(
-		['yt-dlp', '--flat-playlist', '--dump-json', query],
-		{ timeout: 60_000 },
-	)
-
-	if (result.exitCode !== 0) {
-		const stderr = result.stderr.toString().trim()
-		const stdout = result.stdout.toString().trim()
-		const details = [
-			`exit=${result.exitCode}`,
-			stderr ? `stderr=${stderr}` : '',
-			stdout ? `stdout=${stdout}` : '',
-		]
-			.filter(Boolean)
-			.join(' ')
-		throw new Error(`yt-dlp search failed (${details})`)
-	}
-
-	// yt-dlp outputs one JSON object per line
-	const lines = result.stdout.toString().trim().split('\n')
-	return lines
+	return trimmed
+		.split('\n')
 		.filter((line) => line.trim())
 		.map((line) => {
 			try {

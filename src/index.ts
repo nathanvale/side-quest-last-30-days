@@ -5,6 +5,11 @@
  * Engagement-ranked results with scoring and deduplication.
  */
 
+// YouTube
+export {
+	isYtDlpAvailable,
+	searchYouTube,
+} from './adapters/youtube.js'
 // Cache
 export {
 	acquireCacheLock,
@@ -183,10 +188,8 @@ export {
 } from './lib/websearch.js'
 // xAI X
 export { parseXResponse } from './lib/xai-x.js'
-// YouTube
 export {
-	isYtDlpAvailable,
 	parseYouTubeResults,
-	searchYouTube,
+	parseYtDlpJsonLines,
 	youtubeEngagementScore,
 } from './lib/youtube.js'

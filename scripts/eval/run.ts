@@ -72,6 +72,11 @@ interface ReportData {
 		score: number
 		date: string | null
 	}>
+	youtube?: Array<{
+		url: string
+		score: number
+		date: string | null
+	}>
 }
 
 interface TopicResult {
@@ -142,7 +147,12 @@ function runTopic(
 function collectItems(
 	report: ReportData,
 ): Array<{ url: string; score: number; date: string | null }> {
-	return [...(report.reddit ?? []), ...(report.x ?? []), ...(report.web ?? [])]
+	return [
+		...(report.reddit ?? []),
+		...(report.x ?? []),
+		...(report.web ?? []),
+		...(report.youtube ?? []),
+	]
 }
 
 // ---------------------------------------------------------------------------
