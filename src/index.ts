@@ -187,5 +187,6 @@ export { parseXResponse } from './lib/xai-x.js'
 export {
 	isYtDlpAvailable,
 	parseYouTubeResults,
+	searchYouTube,
 	youtubeEngagementScore,
 } from './lib/youtube.js'

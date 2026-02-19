@@ -14,6 +14,13 @@ export function normalizeText(text: string): string {
 		.trim()
 }
 
+/** Remove trailing slashes without regex backtracking risk. */
+function trimTrailingSlashes(value: string): string {
+	let end = value.length
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1
+	return value.slice(0, end)
+}
+
 /** Get character n-grams from text. */
 export function getNgrams(text: string, n = 3): Set<string> {
 	const normalized = normalizeText(text)
@@ -109,7 +116,7 @@ export function dedupeYouTube(items: YouTubeItem[]): YouTubeItem[] {
 	const result: YouTubeItem[] = []
 
 	for (const item of items) {
-		const urlKey = item.url.toLowerCase().replace(/\/+$/, '')
+		const urlKey = trimTrailingSlashes(item.url.toLowerCase())
 		if (!seenUrls.has(urlKey)) {
 			seenUrls.add(urlKey)
 			result.push(item)
@@ -125,7 +132,7 @@ export function dedupeWebsearch(items: WebSearchItem[]): WebSearchItem[] {
 	const result: WebSearchItem[] = []
 
 	for (const item of items) {
-		const urlKey = item.url.toLowerCase().replace(/\/+$/, '')
+		const urlKey = trimTrailingSlashes(item.url.toLowerCase())
 		if (!seenUrls.has(urlKey)) {
 			seenUrls.add(urlKey)
 			result.push(item)

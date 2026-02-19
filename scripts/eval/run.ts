@@ -193,6 +193,30 @@ const THRESHOLDS = {
 	regressionSafetyThreshold: 0.02,
 }
 
+const BASELINE_PATH = join(ROOT, 'fixtures', 'eval', 'baseline.json')
+
+type EvalKpis = {
+	runReliability: number
+	performanceP95Seconds: number
+	avgCitationValidity: number
+	avgTrendRecallAt10: number
+	avgOracleRecall: number
+}
+
+/** Load baseline KPI snapshot if available. */
+function loadBaselineKpis(): EvalKpis | null {
+	try {
+		const raw = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')) as {
+			kpis: EvalKpis
+		}
+		return raw.kpis
+	} catch {
+		return null
+	}
+}
+
+const baselineKpis = loadBaselineKpis()
+
 const scorecard = {
 	generatedAt: new Date().toISOString(),
 	topicCount: topics.length,
@@ -214,11 +238,15 @@ const scorecard = {
 		citationValidity: avgCitation >= THRESHOLDS.citationValidity,
 		runReliability: runReliability(runs) >= THRESHOLDS.runReliability,
 		performanceP95: performanceP95(durations) <= THRESHOLDS.performanceP95,
-		regressionSafety: regressionSafety(
-			avgCitation,
-			avgCitation,
-			THRESHOLDS.regressionSafetyThreshold,
-		),
+		// Absolute-threshold mode may run without a saved baseline.
+		regressionSafety:
+			baselineKpis == null
+				? true
+				: regressionSafety(
+						avgCitation,
+						baselineKpis.avgCitationValidity,
+						THRESHOLDS.regressionSafetyThreshold,
+					),
 	},
 	topicResults: results,
 }
@@ -231,8 +259,6 @@ console.log(JSON.stringify(scorecard, null, '\t'))
 // ---------------------------------------------------------------------------
 // Mode-specific exit behavior
 // ---------------------------------------------------------------------------
-const BASELINE_PATH = join(ROOT, 'fixtures', 'eval', 'baseline.json')
-
 if (MODE === 'baseline-update') {
 	writeFileSync(BASELINE_PATH, `${JSON.stringify(scorecard, null, '\t')}\n`)
 	console.error(`\nBaseline updated: ${BASELINE_PATH}`)
@@ -241,13 +267,8 @@ if (MODE === 'baseline-update') {
 
 if (MODE === 'pr') {
 	// Compare each KPI against baseline -- fail only on regression
-	let baseline: typeof scorecard.kpis | null = null
-	try {
-		const raw = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')) as {
-			kpis: typeof scorecard.kpis
-		}
-		baseline = raw.kpis
-	} catch {
+	const baseline = baselineKpis
+	if (baseline == null) {
 		console.error('\nNo baseline found -- skipping regression check, passing.')
 		process.exit(0)
 	}

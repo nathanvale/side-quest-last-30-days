@@ -25,6 +25,11 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+	isYtDlpAvailable,
+	parseYouTubeResults,
+	searchYouTube,
+} from './index.js'
 import * as cache from './lib/cache.js'
 import * as config from './lib/config.js'
 import { getDateRange } from './lib/dates.js'
@@ -39,7 +44,6 @@ import * as schema from './lib/schema.js'
 import * as score from './lib/score.js'
 import { ProgressDisplay } from './lib/ui.js'
 import * as xaiX from './lib/xai-x.js'
-import * as youtube from './lib/youtube.js'
 
 /** Load a fixture file. */
 function loadFixture(name: string): Record<string, unknown> {
@@ -894,20 +898,16 @@ async function main() {
 				const fixtureData = JSON.parse(
 					readFileSync(fixturePath, 'utf-8'),
 				) as Record<string, unknown>[]
-				youtubeRawItems = youtube.parseYouTubeResults(fixtureData)
+				youtubeRawItems = parseYouTubeResults(fixtureData)
 			} catch (e) {
 				youtubeError = `YouTube fixture error: ${e}`
 			}
 			progress.endYouTube(youtubeRawItems.length)
-		} else if (youtube.isYtDlpAvailable()) {
+		} else if (isYtDlpAvailable()) {
 			progress.startYouTube()
 			try {
-				const rawResults = await youtube.searchYouTube(
-					args.topic,
-					args.days,
-					depth,
-				)
-				youtubeRawItems = youtube.parseYouTubeResults(rawResults)
+				const rawResults = await searchYouTube(args.topic, args.days, depth)
+				youtubeRawItems = parseYouTubeResults(rawResults)
 			} catch (e) {
 				youtubeError = `YouTube search error: ${e}`
 			}

@@ -32,7 +32,18 @@ export async function searchYouTube(
 		{ timeout: 60_000 },
 	)
 
-	if (result.exitCode !== 0) return []
+	if (result.exitCode !== 0) {
+		const stderr = result.stderr.toString().trim()
+		const stdout = result.stdout.toString().trim()
+		const details = [
+			`exit=${result.exitCode}`,
+			stderr ? `stderr=${stderr}` : '',
+			stdout ? `stdout=${stdout}` : '',
+		]
+			.filter(Boolean)
+			.join(' ')
+		throw new Error(`yt-dlp search failed (${details})`)
+	}
 
 	// yt-dlp outputs one JSON object per line
 	const lines = result.stdout.toString().trim().split('\n')
