@@ -178,6 +178,18 @@ describe('extractSubreddits', () => {
 	test('empty items returns empty', () => {
 		expect(extractSubreddits([])).toEqual([])
 	})
+
+	test('ignores empty subreddit values', () => {
+		const items = [
+			redditItem({ title: 'Missing subreddit', subreddit: '' }),
+			redditItem({ title: 'Whitespace subreddit', subreddit: '   ' }),
+			redditItem({ title: 'Valid subreddit', subreddit: 'python' }),
+		]
+		const result = extractSubreddits(items)
+		const values = result.map((e) => e.value)
+		expect(values).toContain('r/python')
+		expect(values).not.toContain('r/')
+	})
 })
 
 // ---------------------------------------------------------------------------
@@ -342,6 +354,26 @@ describe('rankEntities', () => {
 
 	test('empty array returns empty', () => {
 		expect(rankEntities([])).toEqual([])
+	})
+
+	test('clamps negative engagement to keep ranking stable', () => {
+		const entities: ExtractedEntity[] = [
+			{
+				value: '@low',
+				type: 'handle',
+				frequency: 1,
+				engagementWeight: -5,
+			},
+			{
+				value: '@high',
+				type: 'handle',
+				frequency: 3,
+				engagementWeight: 0,
+			},
+		]
+		const ranked = rankEntities(entities)
+		expect(ranked[0].value).toBe('@high')
+		expect(ranked[1].value).toBe('@low')
 	})
 })
 

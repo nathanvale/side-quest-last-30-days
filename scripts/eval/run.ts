@@ -4,7 +4,13 @@
  * Runs CLI with --mock for each topic, computes KPIs, outputs scorecard.
  */
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -157,24 +163,28 @@ for (const { topic, category } of topics) {
 	)
 	mkdirSync(outdir, { recursive: true })
 
-	console.error(`  [${category}] "${topic}"...`)
-	const { success, durationSeconds, report } = runTopic(topic, outdir)
-	durations.push(durationSeconds)
+	try {
+		console.error(`  [${category}] "${topic}"...`)
+		const { success, durationSeconds, report } = runTopic(topic, outdir)
+		durations.push(durationSeconds)
 
-	const items = report ? collectItems(report) : []
-	const oracleEntities = oracle[topic]?.entities ?? []
+		const items = report ? collectItems(report) : []
+		const oracleEntities = oracle[topic]?.entities ?? []
 
-	results.push({
-		topic,
-		category,
-		success,
-		durationSeconds,
-		citationValidity: citationValidity(items),
-		trendRecallAt10: trendRecallAtK(items, oracleEntities, 10),
-		oracleRecall: compareToOracle(items, oracleEntities),
-		itemCount: items.length,
-		...(success ? {} : { error: 'CLI exited non-zero' }),
-	})
+		results.push({
+			topic,
+			category,
+			success,
+			durationSeconds,
+			citationValidity: citationValidity(items),
+			trendRecallAt10: trendRecallAtK(items, oracleEntities, 10),
+			oracleRecall: compareToOracle(items, oracleEntities),
+			itemCount: items.length,
+			...(success ? {} : { error: 'CLI exited non-zero' }),
+		})
+	} finally {
+		rmSync(outdir, { recursive: true, force: true })
+	}
 }
 
 // Compute aggregate KPIs

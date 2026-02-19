@@ -243,8 +243,9 @@ export function extractSubreddits(items: RedditItem[]): ExtractedEntity[] {
 		const score = item.engagement?.score ?? 0
 		const seen = new Set<string>()
 
-		// Always include the subreddit field
-		seen.add(item.subreddit.toLowerCase())
+		// Include subreddit field only when non-empty after normalization.
+		const subreddit = item.subreddit.trim().toLowerCase()
+		if (subreddit) seen.add(subreddit)
 
 		// Extract r/ mentions from title
 		for (const s of matchAll(item.title, SUBREDDIT_RE)) {
@@ -358,8 +359,13 @@ export function extractRepeatedTerms(
  * Uses stable sort to preserve original order for ties.
  */
 export function rankEntities(entities: ExtractedEntity[]): ExtractedEntity[] {
-	const score = (e: ExtractedEntity): number =>
-		e.frequency * (1 + Math.log1p(e.engagementWeight))
+	const score = (e: ExtractedEntity): number => {
+		const engagement =
+			Number.isFinite(e.engagementWeight) && e.engagementWeight > 0
+				? e.engagementWeight
+				: 0
+		return e.frequency * (1 + Math.log1p(engagement))
+	}
 
 	return [...entities].sort((a, b) => score(b) - score(a))
 }
