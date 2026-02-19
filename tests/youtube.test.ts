@@ -289,7 +289,7 @@ describe('dedupeYouTube', () => {
 		expect(dedupeYouTube(items)).toHaveLength(2)
 	})
 
-	test('URL comparison is case-insensitive', () => {
+	test('URL host comparison is case-insensitive for same video ID', () => {
 		const items: YouTubeItem[] = [
 			defaultYouTubeItem({
 				id: 'v1',
@@ -300,12 +300,31 @@ describe('dedupeYouTube', () => {
 			defaultYouTubeItem({
 				id: 'v2',
 				title: 'Dup',
-				url: 'https://www.youtube.com/watch?v=abc',
+				url: 'https://www.youtube.com/watch?v=ABC',
 				channel: 'Ch',
 			}),
 		]
 
 		expect(dedupeYouTube(items)).toHaveLength(1)
+	})
+
+	test('keeps URLs whose video IDs differ only by case', () => {
+		const items: YouTubeItem[] = [
+			defaultYouTubeItem({
+				id: 'v1',
+				title: 'Uppercase ID',
+				url: 'https://www.youtube.com/watch?v=ABC',
+				channel: 'Ch',
+			}),
+			defaultYouTubeItem({
+				id: 'v2',
+				title: 'Lowercase ID',
+				url: 'https://www.youtube.com/watch?v=abc',
+				channel: 'Ch',
+			}),
+		]
+
+		expect(dedupeYouTube(items)).toHaveLength(2)
 	})
 
 	test('handles empty array', () => {
