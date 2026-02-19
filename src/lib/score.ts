@@ -9,6 +9,8 @@ import type {
 	YouTubeItem,
 } from './schema.js'
 
+type SortableItem = RedditItem | XItem | WebSearchItem | YouTubeItem
+
 // Score weights for Reddit/X (has engagement)
 const WEIGHT_RELEVANCE = 0.45
 const WEIGHT_RECENCY = 0.25
@@ -241,9 +243,7 @@ export function scoreYouTubeItems(
 }
 
 /** Sort items by score (descending), then date, then source priority. */
-export function sortItems(
-	items: (RedditItem | XItem | WebSearchItem)[],
-): (RedditItem | XItem | WebSearchItem)[] {
+export function sortItems<T extends SortableItem>(items: T[]): T[] {
 	return [...items].sort((a, b) => {
 		// Primary: score descending
 		if (a.score !== b.score) return b.score - a.score
@@ -253,7 +253,7 @@ export function sortItems(
 		const dateB = b.date ?? '0000-00-00'
 		if (dateA !== dateB) return dateB.localeCompare(dateA)
 
-		// Tertiary: source priority (Reddit > X > WebSearch)
+		// Tertiary: source priority (Reddit > X > WebSearch/YouTube)
 		const priorityA = getSourcePriority(a)
 		const priorityB = getSourcePriority(b)
 		if (priorityA !== priorityB) return priorityA - priorityB
@@ -265,8 +265,8 @@ export function sortItems(
 	})
 }
 
-function getSourcePriority(item: RedditItem | XItem | WebSearchItem): number {
+function getSourcePriority(item: SortableItem): number {
 	if ('subreddit' in item) return 0 // Reddit
 	if ('author_handle' in item) return 1 // X
-	return 2 // WebSearch
+	return 2 // WebSearch or YouTube
 }

@@ -951,10 +951,11 @@ async function main() {
 
 	const sortedReddit = score.sortItems(scoredReddit)
 	const sortedX = score.sortItems(scoredX)
+	const sortedYouTube = score.sortItems(scoredYouTube)
 
-	const dedupedReddit = dedupe.dedupeReddit(sortedReddit as schema.RedditItem[])
-	const dedupedX = dedupe.dedupeX(sortedX as schema.XItem[])
-	const dedupedYouTube = dedupe.dedupeYouTube(scoredYouTube)
+	const dedupedReddit = dedupe.dedupeReddit(sortedReddit)
+	const dedupedX = dedupe.dedupeX(sortedX)
+	const dedupedYouTube = dedupe.dedupeYouTube(sortedYouTube)
 
 	progress.endProcessing()
 

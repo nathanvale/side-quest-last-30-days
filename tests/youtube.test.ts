@@ -6,6 +6,7 @@ import {
 	normalizeYouTubeItems,
 	parseYouTubeResults,
 	scoreYouTubeItems,
+	sortItems,
 	youtubeEngagementScore,
 } from '../src/index'
 import type { YouTubeItem } from '../src/lib/schema'
@@ -309,6 +310,33 @@ describe('dedupeYouTube', () => {
 
 	test('handles empty array', () => {
 		expect(dedupeYouTube([])).toHaveLength(0)
+	})
+
+	test('sort before dedupe keeps highest-scored duplicate URL', () => {
+		const items: YouTubeItem[] = [
+			defaultYouTubeItem({
+				id: 'v1',
+				title: 'Lower Score',
+				url: 'https://www.youtube.com/watch?v=abc',
+				channel: 'Ch',
+				date: '2026-02-10',
+				score: 60,
+			}),
+			defaultYouTubeItem({
+				id: 'v2',
+				title: 'Higher Score',
+				url: 'https://www.youtube.com/watch?v=abc',
+				channel: 'Ch',
+				date: '2026-02-15',
+				score: 90,
+			}),
+		]
+
+		const sorted = sortItems(items)
+		const deduped = dedupeYouTube(sorted)
+		expect(deduped).toHaveLength(1)
+		expect(deduped[0]!.id).toBe('v2')
+		expect(deduped[0]!.score).toBe(90)
 	})
 })
 
