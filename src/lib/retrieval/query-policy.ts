@@ -3,8 +3,10 @@
  *
  * Controls how many results to request, how many phase 2
  * supplemental queries are allowed, and per-adapter timeouts.
- * Intent-based overrides will be layered on in PR-008.
+ * Intent-based overrides are applied via applyIntentPolicy (PR-008).
  */
+
+import type { IntentPolicy } from '../intent.js'
 
 /** Query budget configuration. */
 export interface QueryBudget {
@@ -29,4 +31,20 @@ const BUDGETS: Record<string, QueryBudget> = {
  */
 export function getQueryBudget(depth: string): QueryBudget {
 	return BUDGETS[depth] ?? BUDGETS.default!
+}
+
+/**
+ * Apply intent policy overrides to a query budget.
+ *
+ * Returns a new QueryBudget with maxResults scaled by the policy's
+ * resultMultiplier (rounded up). Other budget fields are unchanged.
+ */
+export function applyIntentPolicy(
+	budget: QueryBudget,
+	policy: IntentPolicy,
+): QueryBudget {
+	return {
+		...budget,
+		maxResults: Math.ceil(budget.maxResults * policy.resultMultiplier),
+	}
 }

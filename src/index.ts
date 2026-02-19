@@ -84,6 +84,13 @@ export {
 	parseRetryAfterMs,
 	RateLimitError,
 } from './lib/http.js'
+// Intent classification
+export type {
+	IntentPolicy,
+	IntentWeights,
+	QueryType as IntentQueryType,
+} from './lib/intent.js'
+export { classifyIntent, getIntentPolicy } from './lib/intent.js'
 // Models
 export { invalidateCachedModel } from './lib/models.js'
 // Normalization
@@ -109,7 +116,10 @@ export {
 } from './lib/render.js'
 export { orchestrate } from './lib/retrieval/orchestrator.js'
 export type { QueryBudget } from './lib/retrieval/query-policy.js'
-export { getQueryBudget } from './lib/retrieval/query-policy.js'
+export {
+	applyIntentPolicy,
+	getQueryBudget,
+} from './lib/retrieval/query-policy.js'
 // Retrieval contracts
 export type {
 	AdapterSearchConfig,
