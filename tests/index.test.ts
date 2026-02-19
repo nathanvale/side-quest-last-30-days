@@ -37,6 +37,7 @@ import {
 
 import {
 	getEnrichmentCacheKey,
+	getPhase2CacheKey,
 	getSourceCacheKey,
 	SEARCH_CACHE_SCHEMA_VERSION,
 } from '../src/lib/cache'
@@ -715,6 +716,140 @@ describe('cache key versioning', () => {
 	test('enrichment key is stable for same URL', () => {
 		const url = 'https://www.reddit.com/r/typescript/comments/abc123/example/'
 		expect(getEnrichmentCacheKey(url)).toBe(getEnrichmentCacheKey(url))
+	})
+
+	test('schema version is v3', () => {
+		expect(SEARCH_CACHE_SCHEMA_VERSION).toBe('v3')
+	})
+
+	test('getSourceCacheKey accepts youtube as source', () => {
+		const key = getSourceCacheKey(
+			'test topic',
+			'2026-01-13',
+			'2026-02-12',
+			30,
+			'youtube',
+			'default',
+			'gpt-4o',
+			'2026-02-11-v1',
+		)
+		expect(typeof key).toBe('string')
+		expect(key.length).toBe(16)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// cache: phase 2 keys
+// ---------------------------------------------------------------------------
+describe('phase 2 cache keys', () => {
+	const base = {
+		topic: 'Claude Code',
+		fromDate: '2026-01-13',
+		toDate: '2026-02-12',
+		days: 30,
+		depth: 'default',
+		model: 'gpt-4o' as string | null,
+		promptVersion: '2026-02-11-v1',
+		entity: 'r/claudeai',
+		entityType: 'subreddit',
+		source: 'reddit',
+	}
+
+	function makePhase2Key(overrides: Partial<typeof base> = {}): string {
+		const cfg = { ...base, ...overrides }
+		return getPhase2CacheKey(
+			cfg.topic,
+			cfg.fromDate,
+			cfg.toDate,
+			cfg.days,
+			cfg.depth,
+			cfg.model,
+			cfg.promptVersion,
+			cfg.entity,
+			cfg.entityType,
+			cfg.source,
+		)
+	}
+
+	test('same inputs produce identical keys', () => {
+		const key1 = makePhase2Key()
+		const key2 = makePhase2Key()
+		expect(key1).toBe(key2)
+	})
+
+	test('different entities produce different keys', () => {
+		const key1 = makePhase2Key({ entity: 'r/claudeai' })
+		const key2 = makePhase2Key({ entity: 'r/openai' })
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different entity types produce different keys', () => {
+		const key1 = makePhase2Key({
+			entity: '@anthropic',
+			entityType: 'handle',
+			source: 'x',
+		})
+		const key2 = makePhase2Key({
+			entity: '@anthropic',
+			entityType: 'hashtag',
+			source: 'x',
+		})
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different sources produce different keys', () => {
+		const key1 = makePhase2Key({ source: 'reddit' })
+		const key2 = makePhase2Key({ source: 'youtube' })
+		expect(key1).not.toBe(key2)
+	})
+
+	test('entity normalization is case-insensitive', () => {
+		const key1 = makePhase2Key({ entity: 'R/FOO' })
+		const key2 = makePhase2Key({ entity: 'r/foo' })
+		expect(key1).toBe(key2)
+	})
+
+	test('entity normalization trims whitespace', () => {
+		const key1 = makePhase2Key({ entity: '  r/foo  ' })
+		const key2 = makePhase2Key({ entity: 'r/foo' })
+		expect(key1).toBe(key2)
+	})
+
+	test('different date windows produce different keys', () => {
+		const key1 = makePhase2Key({
+			fromDate: '2026-01-13',
+			toDate: '2026-02-12',
+			days: 30,
+		})
+		const key2 = makePhase2Key({
+			fromDate: '2026-02-06',
+			toDate: '2026-02-12',
+			days: 7,
+		})
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different depth produces different keys', () => {
+		const key1 = makePhase2Key({ depth: 'quick' })
+		const key2 = makePhase2Key({ depth: 'deep' })
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different model produces different keys', () => {
+		const key1 = makePhase2Key({ model: 'gpt-4o' })
+		const key2 = makePhase2Key({ model: 'gpt-4o-mini' })
+		expect(key1).not.toBe(key2)
+	})
+
+	test('different prompt versions produce different keys', () => {
+		const key1 = makePhase2Key({ promptVersion: '2026-02-11-v1' })
+		const key2 = makePhase2Key({ promptVersion: '2026-02-12-v2' })
+		expect(key1).not.toBe(key2)
+	})
+
+	test('returns 16-char hex string', () => {
+		const key = makePhase2Key()
+		expect(key).toMatch(/^[0-9a-f]{16}$/)
 	})
 })
 

@@ -12,6 +12,7 @@ export {
 	getCacheKey,
 	getEnrichmentCacheKey,
 	getEnrichmentTTL,
+	getPhase2CacheKey,
 	getSearchTTL,
 	getSourceCacheKey,
 	getStaleSearchTTL,
