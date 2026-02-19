@@ -94,7 +94,7 @@ CLI (Editor-in-Chief) -- src/cli.ts
 
 ## Testing
 
-Tests live in `tests/index.test.ts` (1000+ lines, Bun native test runner). Tests use `Bun.spawnSync()` to test CLI as a subprocess. The `--mock` flag enables fixture-based testing without API keys.
+Core CLI subprocess coverage lives in `tests/index.test.ts` (currently 1000+ lines, Bun native test runner). New test files should stay focused and only add subprocess coverage where it materially improves confidence. The `--mock` flag enables fixture-based testing without API keys.
 
 ## CI/CD
 

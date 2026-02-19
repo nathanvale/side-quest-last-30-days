@@ -47,6 +47,12 @@ import * as schema from './lib/schema.js'
 import * as score from './lib/score.js'
 import { computeTrendScores } from './lib/trend.js'
 import { ProgressDisplay } from './lib/ui.js'
+import {
+	addTopic,
+	getHistory,
+	listTopics,
+	removeTopic,
+} from './lib/watchlist.js'
 import * as xaiX from './lib/xai-x.js'
 
 /** Load a fixture file. */
@@ -113,7 +119,17 @@ Examples:
   last-30-days "Claude Code"
   last-30-days "React Server Components" --deep --emit=json
   last-30-days "Bun 1.2" --sources=reddit --include-web
-  last-30-days "Bun 1.2" --days=7 --emit=json`
+  last-30-days "Bun 1.2" --days=7 --emit=json
+
+Watch subcommands:
+  last-30-days watch add "topic" [--every=daily|weekly]
+                    Add a topic to your watchlist
+  last-30-days watch list
+                    List all watched topics
+  last-30-days watch remove "topic"
+                    Remove a topic from your watchlist
+  last-30-days watch history "topic" [--limit=10]
+                    Show run history for a topic`
 
 	console.log(text)
 	process.exit(0)
@@ -622,8 +638,243 @@ async function searchXTask(
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Watch subcommand handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * Adds a topic to the watchlist and prints confirmation.
+ *
+ * @param topic    - Topic string to watch.
+ * @param schedule - Optional schedule: `'daily'` or `'weekly'`.
+ */
+function watchAdd(topic: string, schedule?: string): void {
+	addTopic(topic, schedule)
+	const scheduleNote = schedule ? ` (schedule: ${schedule})` : ''
+	process.stdout.write(`Watching: "${topic}"${scheduleNote}\n`)
+}
+
+/** Lists all watched topics in a formatted table. */
+function watchList(): void {
+	const topics = listTopics()
+	if (topics.length === 0) {
+		process.stdout.write('No topics on your watchlist.\n')
+		return
+	}
+	process.stdout.write(
+		`${'ID'.padEnd(4)} ${'Topic'.padEnd(40)} ${'Schedule'.padEnd(8)} Last run\n`,
+	)
+	process.stdout.write(
+		`${'-'.repeat(4)} ${'-'.repeat(40)} ${'-'.repeat(8)} ${'-'.repeat(19)}\n`,
+	)
+	for (const t of topics) {
+		const id = String(t.id).padEnd(4)
+		const topic = t.topic.slice(0, 40).padEnd(40)
+		const schedule = (t.schedule ?? '-').padEnd(8)
+		const lastRun = t.lastRunAt ?? 'never'
+		process.stdout.write(`${id} ${topic} ${schedule} ${lastRun}\n`)
+	}
+}
+
+/**
+ * Removes a topic from the watchlist and prints confirmation.
+ *
+ * @param topic - Topic string to remove.
+ */
+function watchRemove(topic: string): void {
+	const removed = removeTopic(topic)
+	if (removed) {
+		process.stdout.write(`Removed: "${topic}"\n`)
+	} else {
+		process.stdout.write(`Not found: "${topic}"\n`)
+	}
+}
+
+/**
+ * Prints run history for a topic.
+ *
+ * @param topic - Topic to query.
+ * @param limit - Maximum number of entries to display.
+ */
+function watchHistory(topic: string, limit: number): void {
+	const entries = getHistory(topic, limit)
+	if (entries.length === 0) {
+		process.stdout.write(`No run history for "${topic}".\n`)
+		return
+	}
+	process.stdout.write(
+		`Run history for "${topic}" (${entries.length} entries):\n\n`,
+	)
+	for (const e of entries) {
+		const status = e.status === 'success' ? 'ok' : 'ERR'
+		const duration = e.durationMs != null ? `${e.durationMs}ms` : '-'
+		const items = String(e.itemCount).padStart(3)
+		const error = e.errorMessage ? ` -- ${e.errorMessage}` : ''
+		process.stdout.write(
+			`  [${status}] ${e.ranAt}  ${items} items  ${duration}${error}\n`,
+		)
+	}
+}
+
+/**
+ * Routes `watch` subcommands: add, list, remove, history.
+ *
+ * @param args - Remaining argv after the `watch` token.
+ */
+function handleWatchCommand(args: string[]): void {
+	const sub = args[0]
+
+	if (sub === 'add') {
+		// Find the topic (first non-flag arg after 'add')
+		const remaining = args.slice(1)
+		let topic = ''
+		let schedule: string | undefined
+		let scheduleProvided = false
+
+		for (let i = 0; i < remaining.length; i++) {
+			const arg = remaining[i]!
+			if (arg.startsWith('--every=')) {
+				scheduleProvided = true
+				schedule = arg.slice('--every='.length)
+			} else if (arg === '--every') {
+				const value = remaining[i + 1]
+				scheduleProvided = true
+				if (!value || value.startsWith('-')) {
+					schedule = ''
+				} else {
+					schedule = value
+					i += 1
+				}
+			} else if (arg.startsWith('--')) {
+				process.stderr.write(`Error: Unknown watch add flag: "${arg}"\n`)
+				process.stderr.write(
+					'Usage: last-30-days watch add "topic" [--every=daily|weekly]\n',
+				)
+				process.exit(1)
+			} else if (!arg.startsWith('-')) {
+				topic = topic ? `${topic} ${arg}` : arg
+			}
+		}
+
+		if (!topic) {
+			process.stderr.write('Error: watch add requires a topic.\n')
+			process.stderr.write(
+				'Usage: last-30-days watch add "topic" [--every=daily|weekly]\n',
+			)
+			process.exit(1)
+		}
+
+		const validSchedules = ['daily', 'weekly']
+		if (scheduleProvided && !validSchedules.includes(schedule ?? '')) {
+			process.stderr.write(
+				`Error: Invalid --every value: "${schedule}". Valid: daily, weekly\n`,
+			)
+			process.exit(1)
+		}
+
+		watchAdd(topic, schedule)
+		return
+	}
+
+	if (sub === 'list') {
+		watchList()
+		return
+	}
+
+	if (sub === 'remove') {
+		const remaining = args.slice(1)
+		let topic = ''
+		for (const arg of remaining) {
+			if (!arg.startsWith('-')) {
+				topic = topic ? `${topic} ${arg}` : arg
+			}
+		}
+		if (!topic) {
+			process.stderr.write('Error: watch remove requires a topic.\n')
+			process.stderr.write('Usage: last-30-days watch remove "topic"\n')
+			process.exit(1)
+		}
+		watchRemove(topic)
+		return
+	}
+
+	if (sub === 'history') {
+		const remaining = args.slice(1)
+		let topic = ''
+		let limit = 10
+
+		const failLimit = (): never => {
+			process.stderr.write('Error: --limit must be a positive integer.\n')
+			process.stderr.write(
+				'Usage: last-30-days watch history "topic" [--limit=10|--limit 10]\n',
+			)
+			process.exit(1)
+		}
+
+		for (let i = 0; i < remaining.length; i++) {
+			const arg = remaining[i]!
+			if (arg.startsWith('--limit=')) {
+				const n = Number(arg.slice('--limit='.length))
+				if (!Number.isInteger(n) || n < 1) failLimit()
+				limit = n
+			} else if (arg === '--limit') {
+				const value = remaining[i + 1]
+				if (!value || value.startsWith('-')) failLimit()
+				const n = Number(value)
+				if (!Number.isInteger(n) || n < 1) failLimit()
+				limit = n
+				i += 1
+			} else if (arg.startsWith('--')) {
+				process.stderr.write(`Error: Unknown watch history flag: "${arg}"\n`)
+				process.stderr.write(
+					'Usage: last-30-days watch history "topic" [--limit=10|--limit 10]\n',
+				)
+				process.exit(1)
+			} else if (!arg.startsWith('-')) {
+				topic = topic ? `${topic} ${arg}` : arg
+			}
+		}
+
+		if (!topic) {
+			process.stderr.write('Error: watch history requires a topic.\n')
+			process.stderr.write(
+				'Usage: last-30-days watch history "topic" [--limit=10]\n',
+			)
+			process.exit(1)
+		}
+
+		watchHistory(topic, limit)
+		return
+	}
+
+	// Unknown or missing subcommand.
+	process.stderr.write(
+		`Error: Unknown watch subcommand: "${sub ?? ''}"\n` +
+			'Valid subcommands: add, list, remove, history\n',
+	)
+	process.exit(1)
+}
+
+// ---------------------------------------------------------------------------
+// Main entrypoint
+// ---------------------------------------------------------------------------
+
 async function main() {
-	const args = parseArgs(process.argv.slice(2))
+	const rawArgs = process.argv.slice(2)
+
+	// Route subcommands before main argument parsing.
+	if (rawArgs[0] === 'watch') {
+		handleWatchCommand(rawArgs.slice(1))
+		return
+	}
+
+	// Briefing subcommand -- stub for PR-010.
+	if (rawArgs[0] === 'briefing') {
+		process.stderr.write('briefing subcommand is not yet implemented.\n')
+		process.exit(1)
+	}
+
+	const args = parseArgs(rawArgs)
 
 	if (args.debug) {
 		process.env.LAST_30_DAYS_DEBUG = '1'

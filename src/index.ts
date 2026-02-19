@@ -158,6 +158,8 @@ export {
 	scoreYouTubeItems,
 	sortItems,
 } from './lib/score.js'
+// Store
+export { closeDb, getDb, getDbPath, initDb } from './lib/store.js'
 // Telemetry contract types
 export type {
 	ConfidenceFactorsV1,
@@ -194,6 +196,19 @@ export {
 	sourceDiversityBonus,
 	trendScore,
 } from './lib/trend.js'
+// Watchlist
+export type {
+	RunHistoryEntry,
+	RunResult,
+	WatchlistTopic,
+} from './lib/watchlist.js'
+export {
+	addTopic,
+	getHistory,
+	listTopics,
+	recordRun,
+	removeTopic,
+} from './lib/watchlist.js'
 // WebSearch
 export {
 	extractDateFromSnippet,
