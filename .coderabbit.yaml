@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  review_status: true
+  commit_status: true
+  fail_commit_status: true
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: true
+  assess_linked_issues: true
+  related_prs: true
+  poem: false
+  enable_prompt_for_ai_agents: true
+
+  # Ignore generated/vendored output
+  path_filters:
+    - "!dist/**"
+    - "!coverage/**"
+    - "!node_modules/**"
+    - "!*.lock"
+    - "!fixtures/**"
+
+  path_instructions:
+    - path: "src/lib/**"
+      instructions: |
+        This is the core library layer -- pure functions, no side effects, no I/O.
+        Enforce: strict TypeScript types, JSDoc on all exports, no runtime deps
+        beyond @side-quest/core. Flag any new npm dependency additions.
+        Scoring/dedup modules use n-gram Jaccard similarity -- be precise
+        about algorithmic correctness.
+    - path: "src/cli.ts"
+      instructions: |
+        This is the CLI orchestrator -- the only file allowed to do I/O, spawn
+        processes, and manage control flow. Library code must NOT be imported
+        here except through the barrel export (src/index.ts). Flag any direct
+        imports from src/lib/ submodules.
+    - path: "src/index.ts"
+      instructions: |
+        Pure barrel export file. Must have zero side effects, zero logic,
+        only re-exports. Flag any code beyond export statements.
+    - path: "tests/**"
+      instructions: |
+        Tests use Bun native test runner with Bun.spawnSync for CLI subprocess
+        testing. --mock flag enables fixture-based testing. Don't flag missing
+        JSDoc in test files. Focus on: assertion completeness, edge case
+        coverage, mock isolation.
+    - path: ".github/workflows/**"
+      instructions: |
+        CI/CD workflows. Enforce actionlint rules strictly. Check for:
+        pinned action versions (no @main), proper secret handling,
+        OIDC provenance for npm publish.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "chore(wip)"
+
+  pre_merge_checks:
+    docstrings:
+      mode: "warning"
+      threshold: 80
+    title:
+      mode: "warning"
+      requirements: "Use conventional commits: type(scope): subject. Max 100 chars, lowercase, no period."
+    description:
+      mode: "warning"
+    issue_assessment:
+      mode: "warning"
+    custom_checks:
+      - name: "No New Runtime Dependencies"
+        mode: "error"
+        instructions: |
+          Pass/fail: The only allowed runtime dependency is @side-quest/core.
+          If package.json 'dependencies' (not devDependencies) adds any new
+          package beyond @side-quest/core, FAIL. New devDependencies are fine.
+      - name: "Exported Functions Have JSDoc"
+        mode: "warning"
+        instructions: |
+          Pass/fail: Every exported function or class must have a JSDoc comment
+          explaining its purpose. Check all files in src/ (not tests/).
+          Missing JSDoc on an exported symbol = FAIL.
+      - name: "No Direct src/lib Imports in CLI"
+        mode: "error"
+        instructions: |
+          Pass/fail: src/cli.ts must only import from './index.js' or
+          external packages. Any direct import from './lib/' submodules = FAIL.
+          The barrel export pattern must be respected.
+
+  tools:
+    biome:
+      enabled: true
+    eslint:
+      enabled: false
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    languagetool:
+      enabled: false
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  learnings:
+    scope: "auto"
+  issues:
+    scope: "auto"
+  pull_requests:
+    scope: "auto"
