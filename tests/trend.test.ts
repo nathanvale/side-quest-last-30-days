@@ -139,9 +139,7 @@ describe('momentumScore', () => {
 			date: hoursAgo(24),
 			engagement: { score: 4, num_comments: 0, upvote_ratio: 0.5 },
 		})
-		expect(momentumScore(highEngagement)).toBeGreaterThan(
-			momentumScore(lowEngagement),
-		)
+		expect(momentumScore(highEngagement)).toBeGreaterThan(momentumScore(lowEngagement))
 	})
 })
 

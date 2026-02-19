@@ -179,7 +179,11 @@ export function scoreRedditItems(
 				mix.engagement * engScore +
 				trendWeight * ts.trendScore * 100
 		} else {
-			item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: engScore,
+			}
 			item.momentum = undefined
 			item.trend_score = undefined
 			overall =
@@ -242,7 +246,11 @@ export function scoreXItems(
 				mix.engagement * engScore +
 				trendWeight * ts.trendScore * 100
 		} else {
-			item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: engScore,
+			}
 			item.momentum = undefined
 			item.trend_score = undefined
 			overall =
