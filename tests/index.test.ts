@@ -755,9 +755,7 @@ describe('phase 2 cache keys', () => {
 		source: 'reddit',
 	}
 
-	function makePhase2Key(
-		overrides: Partial<typeof base> = {},
-	): string {
+	function makePhase2Key(overrides: Partial<typeof base> = {}): string {
 		const cfg = { ...base, ...overrides }
 		return getPhase2CacheKey(
 			cfg.topic,
