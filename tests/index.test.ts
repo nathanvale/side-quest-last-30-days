@@ -1036,6 +1036,11 @@ describe('cli', () => {
 		expect(result.exitCode).toBe(0)
 	})
 
+	test('--phase2-budget 3 is accepted', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json', '--phase2-budget', '3'])
+		expect(result.exitCode).toBe(0)
+	})
+
 	test('--strategy=invalid exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--strategy=invalid'])
 		expect(result.exitCode).toBe(1)
@@ -1052,6 +1057,20 @@ describe('cli', () => {
 
 	test('--phase2-budget=abc exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--phase2-budget=abc'])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('--phase2-budget must be an integer')
+	})
+
+	test('--phase2-budget -1 exits with error', () => {
+		const result = runCli(['test topic', '--mock', '--phase2-budget', '-1'])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('--phase2-budget must be an integer')
+	})
+
+	test('--phase2-budget without value exits with error', () => {
+		const result = runCli(['test topic', '--mock', '--phase2-budget'])
 		expect(result.exitCode).toBe(1)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--phase2-budget must be an integer')
