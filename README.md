@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@side-quest/last-30-days)](https://www.npmjs.com/package/@side-quest/last-30-days)
 [![CI](https://github.com/nathanvale/side-quest-last-30-days/actions/workflows/pr-quality.yml/badge.svg)](https://github.com/nathanvale/side-quest-last-30-days/actions/workflows/pr-quality.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Node >=22.20](https://img.shields.io/badge/node-%3E%3D22.20-brightgreen)](https://nodejs.org)
+[![Bun >=1.2](https://img.shields.io/badge/bun-%3E%3D1.2-brightgreen)](https://bun.sh)
 
 Research any topic from the last 30 days across Reddit, X, YouTube, and web -- engagement-ranked results.
 
@@ -17,7 +17,7 @@ Research any topic from the last 30 days across Reddit, X, YouTube, and web -- e
 - **Two-phase retrieval** -- phase 1 parallel search + optional phase 2 entity-driven supplemental queries
 - **Filesystem cache** -- versioned cache keys, file locking, atomic writes, stale-cache fallback on rate-limit errors
 - **Multiple output modes** -- compact markdown, full JSON, full markdown report, reusable context snippet, or file path
-- **CLI + library** -- usable as a command-line tool or imported as a typed npm package
+- **CLI + library** -- usable as a command-line tool or imported as a typed Bun package
 - **Mock mode** -- fixture-based testing without API keys (`--mock`)
 - **Zero runtime deps** -- only `@side-quest/core`; everything else is native (`fetch`, `node:fs`, built-in JSON)
 
@@ -27,7 +27,7 @@ Research any topic from the last 30 days across Reddit, X, YouTube, and web -- e
 
 | Requirement | Notes |
 |-------------|-------|
-| Node.js `>=22.20` or [Bun](https://bun.sh) | Runtime |
+| [Bun](https://bun.sh) `>=1.2` | Runtime (Bun-only) |
 | `OPENAI_API_KEY` | Required for Reddit search |
 | `XAI_API_KEY` | Required for X/Twitter search |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) in `PATH` | Required for `--include-youtube` |
@@ -39,10 +39,7 @@ Both API keys are optional -- the CLI falls back gracefully to whatever sources 
 ## Installation
 
 ```bash
-# npm (global)
-npm install -g @side-quest/last-30-days
-
-# bun (global)
+# bun (global CLI)
 bun add -g @side-quest/last-30-days
 
 # Library only (no global install)
@@ -339,11 +336,10 @@ The `--mock` flag enables fixture-based testing without API keys. Fixtures live 
 | `dependency-review.yml` | PR | Supply chain security review |
 | `dependabot-auto-merge.yml` | Dependabot PR | Auto-merge patch/minor updates |
 | `dismiss-stale-bot-reviews.yml` | PR synchronize | Auto-dismiss stale bot CHANGES_REQUESTED reviews |
-| `node-compat.yml` | Schedule | Node.js version compatibility checks |
 | `package-hygiene.yml` | PR | publint + attw package correctness |
 | `workflow-lint.yml` | PR | actionlint on workflow files |
 
-Publishing uses OIDC trusted publishing (npm 11.6+ / Node 24). No long-lived `NPM_TOKEN` is required once OIDC is configured at npmjs.com.
+Runtime support is Bun-only. Release workflows still use Node 24 in CI for npm trusted publishing and Changesets compatibility.
 
 ---
 

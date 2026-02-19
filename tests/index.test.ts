@@ -1076,6 +1076,29 @@ describe('cli', () => {
 		expect(stderr).toContain('--phase2-budget must be an integer')
 	})
 
+	test('watch add rejects empty --every value', () => {
+		const result = runCli(['watch', 'add', `watch-topic-${Date.now()}`, '--every='])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('Invalid --every value')
+	})
+
+	test('watch history supports spaced --limit without mutating topic', () => {
+		const topic = `watch-history-topic-${Date.now()}`
+		const result = runCli(['watch', 'history', topic, '--limit', '5'])
+		expect(result.exitCode).toBe(0)
+		const stdout = new TextDecoder().decode(result.stdout)
+		expect(stdout).toContain(`No run history for "${topic}".`)
+		expect(stdout).not.toContain(`${topic} 5`)
+	})
+
+	test('watch history rejects missing value for spaced --limit', () => {
+		const result = runCli(['watch', 'history', 'topic', '--limit'])
+		expect(result.exitCode).toBe(1)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('--limit must be a positive integer')
+	})
+
 	test('--include-youtube flag is accepted in mock mode', () => {
 		const result = runCli(['test topic', '--mock', '--emit=json', '--include-youtube'])
 		expect(result.exitCode).toBe(0)

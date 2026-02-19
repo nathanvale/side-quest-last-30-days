@@ -729,11 +729,28 @@ function handleWatchCommand(args: string[]): void {
 		const remaining = args.slice(1)
 		let topic = ''
 		let schedule: string | undefined
+		let scheduleProvided = false
 
 		for (let i = 0; i < remaining.length; i++) {
 			const arg = remaining[i]!
 			if (arg.startsWith('--every=')) {
+				scheduleProvided = true
 				schedule = arg.slice('--every='.length)
+			} else if (arg === '--every') {
+				const value = remaining[i + 1]
+				scheduleProvided = true
+				if (!value || value.startsWith('-')) {
+					schedule = ''
+				} else {
+					schedule = value
+					i += 1
+				}
+			} else if (arg.startsWith('--')) {
+				process.stderr.write(`Error: Unknown watch add flag: "${arg}"\n`)
+				process.stderr.write(
+					'Usage: last-30-days watch add "topic" [--every=daily|weekly]\n',
+				)
+				process.exit(1)
 			} else if (!arg.startsWith('-')) {
 				topic = topic ? `${topic} ${arg}` : arg
 			}
@@ -748,7 +765,7 @@ function handleWatchCommand(args: string[]): void {
 		}
 
 		const validSchedules = ['daily', 'weekly']
-		if (schedule && !validSchedules.includes(schedule)) {
+		if (scheduleProvided && !validSchedules.includes(schedule ?? '')) {
 			process.stderr.write(
 				`Error: Invalid --every value: "${schedule}". Valid: daily, weekly\n`,
 			)
@@ -786,11 +803,33 @@ function handleWatchCommand(args: string[]): void {
 		let topic = ''
 		let limit = 10
 
+		const failLimit = (): never => {
+			process.stderr.write('Error: --limit must be a positive integer.\n')
+			process.stderr.write(
+				'Usage: last-30-days watch history "topic" [--limit=10|--limit 10]\n',
+			)
+			process.exit(1)
+		}
+
 		for (let i = 0; i < remaining.length; i++) {
 			const arg = remaining[i]!
 			if (arg.startsWith('--limit=')) {
 				const n = Number(arg.slice('--limit='.length))
-				if (Number.isInteger(n) && n > 0) limit = n
+				if (!Number.isInteger(n) || n < 1) failLimit()
+				limit = n
+			} else if (arg === '--limit') {
+				const value = remaining[i + 1]
+				if (!value || value.startsWith('-')) failLimit()
+				const n = Number(value)
+				if (!Number.isInteger(n) || n < 1) failLimit()
+				limit = n
+				i += 1
+			} else if (arg.startsWith('--')) {
+				process.stderr.write(`Error: Unknown watch history flag: "${arg}"\n`)
+				process.stderr.write(
+					'Usage: last-30-days watch history "topic" [--limit=10|--limit 10]\n',
+				)
+				process.exit(1)
 			} else if (!arg.startsWith('-')) {
 				topic = topic ? `${topic} ${arg}` : arg
 			}
