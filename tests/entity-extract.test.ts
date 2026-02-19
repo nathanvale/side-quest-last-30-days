@@ -178,6 +178,18 @@ describe('extractSubreddits', () => {
 	test('empty items returns empty', () => {
 		expect(extractSubreddits([])).toEqual([])
 	})
+
+	test('ignores empty subreddit values', () => {
+		const items = [
+			redditItem({ title: 'Missing subreddit', subreddit: '' }),
+			redditItem({ title: 'Whitespace subreddit', subreddit: '   ' }),
+			redditItem({ title: 'Valid subreddit', subreddit: 'python' }),
+		]
+		const result = extractSubreddits(items)
+		const values = result.map((e) => e.value)
+		expect(values).toContain('r/python')
+		expect(values).not.toContain('r/')
+	})
 })
 
 // ---------------------------------------------------------------------------
@@ -240,38 +252,49 @@ describe('extractHashtags', () => {
 // ---------------------------------------------------------------------------
 
 describe('extractRepeatedTerms', () => {
-	test('finds terms appearing in >= minCount items', () => {
+	test('finds noun phrases appearing in >= minCount items', () => {
 		const items = [
-			xItem({ text: 'claude is amazing', author_handle: '@a' }),
-			xItem({ text: 'claude model release', author_handle: '@b' }),
-			xItem({ text: 'claude beats gpt', author_handle: '@c' }),
+			xItem({
+				text: 'context engineering patterns for agents',
+				author_handle: '@a',
+			}),
+			xItem({
+				text: 'context engineering workflows in production',
+				author_handle: '@b',
+			}),
+			xItem({
+				text: 'context engineering checklists for teams',
+				author_handle: '@c',
+			}),
 		]
 		const result = extractRepeatedTerms(items)
 		const values = result.map((e) => e.value)
-		expect(values).toContain('claude')
+		expect(values).toContain('context engineering')
+		expect(result.find((e) => e.value === 'context engineering')?.frequency).toBe(3)
 	})
 
 	test('respects custom minCount', () => {
 		const items = [
-			xItem({ text: 'claude rocks', author_handle: '@a' }),
-			xItem({ text: 'claude rules', author_handle: '@b' }),
+			xItem({ text: 'prompt engineering rocks', author_handle: '@a' }),
+			xItem({ text: 'prompt engineering rules', author_handle: '@b' }),
 		]
-		// Default minCount=3 should not include "claude"
-		expect(extractRepeatedTerms(items).map((e) => e.value)).not.toContain('claude')
+		// Default minCount=3 should not include "prompt engineering"
+		expect(extractRepeatedTerms(items).map((e) => e.value)).not.toContain('prompt engineering')
 		// minCount=2 should include it
-		expect(extractRepeatedTerms(items, 2).map((e) => e.value)).toContain('claude')
+		expect(extractRepeatedTerms(items, 2).map((e) => e.value)).toContain('prompt engineering')
 	})
 
-	test('filters stopwords', () => {
+	test('normalizes punctuation and trims stopword edges', () => {
 		const items = [
-			xItem({ text: 'the big model', author_handle: '@a' }),
-			xItem({ text: 'the big release', author_handle: '@b' }),
-			xItem({ text: 'the big update', author_handle: '@c' }),
+			xItem({ text: 'The context-engineering playbook!', author_handle: '@a' }),
+			xItem({ text: 'A context engineering playbook.', author_handle: '@b' }),
+			xItem({ text: 'the context engineering playbook', author_handle: '@c' }),
 		]
 		const result = extractRepeatedTerms(items)
 		const values = result.map((e) => e.value)
-		expect(values).not.toContain('the')
-		expect(values).toContain('big')
+		expect(values).toContain('context engineering playbook')
+		expect(values.some((v) => v.startsWith('the '))).toBe(false)
+		expect(values.some((v) => v.startsWith('a '))).toBe(false)
 	})
 
 	test('empty items returns empty', () => {
@@ -282,10 +305,8 @@ describe('extractRepeatedTerms', () => {
 		const items = [xItem({ text: 'unique term here', author_handle: '@a' })]
 		const result = extractRepeatedTerms(items, 1)
 		const values = result.map((e) => e.value)
-		expect(values).toContain('unique')
-		expect(values).toContain('term')
-		// "here" is a stopword
-		expect(values).not.toContain('here')
+		expect(values).toContain('unique term')
+		expect(values).not.toContain('term here')
 	})
 })
 
@@ -342,6 +363,26 @@ describe('rankEntities', () => {
 
 	test('empty array returns empty', () => {
 		expect(rankEntities([])).toEqual([])
+	})
+
+	test('clamps negative engagement to keep ranking stable', () => {
+		const entities: ExtractedEntity[] = [
+			{
+				value: '@low',
+				type: 'handle',
+				frequency: 1,
+				engagementWeight: -5,
+			},
+			{
+				value: '@high',
+				type: 'handle',
+				frequency: 3,
+				engagementWeight: 0,
+			},
+		]
+		const ranked = rankEntities(entities)
+		expect(ranked[0].value).toBe('@high')
+		expect(ranked[1].value).toBe('@low')
 	})
 })
 
