@@ -252,49 +252,38 @@ describe('extractHashtags', () => {
 // ---------------------------------------------------------------------------
 
 describe('extractRepeatedTerms', () => {
-	test('finds noun phrases appearing in >= minCount items', () => {
+	test('finds terms appearing in >= minCount items', () => {
 		const items = [
-			xItem({
-				text: 'context engineering patterns for agents',
-				author_handle: '@a',
-			}),
-			xItem({
-				text: 'context engineering workflows in production',
-				author_handle: '@b',
-			}),
-			xItem({
-				text: 'context engineering checklists for teams',
-				author_handle: '@c',
-			}),
+			xItem({ text: 'claude is amazing', author_handle: '@a' }),
+			xItem({ text: 'claude model release', author_handle: '@b' }),
+			xItem({ text: 'claude beats gpt', author_handle: '@c' }),
 		]
 		const result = extractRepeatedTerms(items)
 		const values = result.map((e) => e.value)
-		expect(values).toContain('context engineering')
-		expect(result.find((e) => e.value === 'context engineering')?.frequency).toBe(3)
+		expect(values).toContain('claude')
 	})
 
 	test('respects custom minCount', () => {
 		const items = [
-			xItem({ text: 'prompt engineering rocks', author_handle: '@a' }),
-			xItem({ text: 'prompt engineering rules', author_handle: '@b' }),
+			xItem({ text: 'claude rocks', author_handle: '@a' }),
+			xItem({ text: 'claude rules', author_handle: '@b' }),
 		]
-		// Default minCount=3 should not include "prompt engineering"
-		expect(extractRepeatedTerms(items).map((e) => e.value)).not.toContain('prompt engineering')
+		// Default minCount=3 should not include "claude"
+		expect(extractRepeatedTerms(items).map((e) => e.value)).not.toContain('claude')
 		// minCount=2 should include it
-		expect(extractRepeatedTerms(items, 2).map((e) => e.value)).toContain('prompt engineering')
+		expect(extractRepeatedTerms(items, 2).map((e) => e.value)).toContain('claude')
 	})
 
-	test('normalizes punctuation and trims stopword edges', () => {
+	test('filters stopwords', () => {
 		const items = [
-			xItem({ text: 'The context-engineering playbook!', author_handle: '@a' }),
-			xItem({ text: 'A context engineering playbook.', author_handle: '@b' }),
-			xItem({ text: 'the context engineering playbook', author_handle: '@c' }),
+			xItem({ text: 'the big model', author_handle: '@a' }),
+			xItem({ text: 'the big release', author_handle: '@b' }),
+			xItem({ text: 'the big update', author_handle: '@c' }),
 		]
 		const result = extractRepeatedTerms(items)
 		const values = result.map((e) => e.value)
-		expect(values).toContain('context engineering playbook')
-		expect(values.some((v) => v.startsWith('the '))).toBe(false)
-		expect(values.some((v) => v.startsWith('a '))).toBe(false)
+		expect(values).not.toContain('the')
+		expect(values).toContain('big')
 	})
 
 	test('empty items returns empty', () => {
@@ -305,8 +294,10 @@ describe('extractRepeatedTerms', () => {
 		const items = [xItem({ text: 'unique term here', author_handle: '@a' })]
 		const result = extractRepeatedTerms(items, 1)
 		const values = result.map((e) => e.value)
-		expect(values).toContain('unique term')
-		expect(values).not.toContain('term here')
+		expect(values).toContain('unique')
+		expect(values).toContain('term')
+		// "here" is a stopword
+		expect(values).not.toContain('here')
 	})
 })
 

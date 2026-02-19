@@ -1,9 +1,9 @@
 {
-	"generatedAt": "2026-02-18T12:29:29.788Z",
+	"generatedAt": "2026-02-18T12:38:01.962Z",
 	"topicCount": 10,
 	"kpis": {
 		"runReliability": 1,
-		"performanceP95Seconds": 0.02,
+		"performanceP95Seconds": 0.01980375000000001,
 		"avgCitationValidity": 0,
 		"avgTrendRecallAt10": 0,
 		"avgOracleRecall": 0
@@ -20,5 +20,106 @@
 		"performanceP95": true,
 		"regressionSafety": true
 	},
-	"note": "Baseline with --mock mode. Mock fixtures only contain data for one hardcoded topic, so citation/recall KPIs are 0 for all eval topics. This baseline establishes the harness infrastructure -- real scores will improve once mock fixtures cover eval topics or live API keys are used."
+	"topicResults": [
+		{
+			"topic": "Claude AI prompting techniques",
+			"category": "prompting",
+			"success": true,
+			"durationSeconds": 0.019628125,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "React Server Components",
+			"category": "trending",
+			"success": true,
+			"durationSeconds": 0.018666542,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "Rust vs Go 2025",
+			"category": "evergreen",
+			"success": true,
+			"durationSeconds": 0.018273207999999996,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "OpenAI o3 model",
+			"category": "news",
+			"success": true,
+			"durationSeconds": 0.019608333000000002,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "TypeScript 5.8 features",
+			"category": "trending",
+			"success": true,
+			"durationSeconds": 0.018603958000000007,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "LLM fine-tuning best practices",
+			"category": "recommendations",
+			"success": true,
+			"durationSeconds": 0.01980375000000001,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "Bun runtime performance",
+			"category": "niche",
+			"success": true,
+			"durationSeconds": 0.019143124999999983,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "AI code review tools",
+			"category": "recommendations",
+			"success": true,
+			"durationSeconds": 0.018803082999999988,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "WebAssembly WASI preview 2",
+			"category": "niche",
+			"success": true,
+			"durationSeconds": 0.019797125000000023,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		},
+		{
+			"topic": "GitHub Copilot alternatives",
+			"category": "evergreen",
+			"success": true,
+			"durationSeconds": 0.019146625,
+			"citationValidity": 0,
+			"trendRecallAt10": 0,
+			"oracleRecall": 0,
+			"itemCount": 0
+		}
+	]
 }

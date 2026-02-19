@@ -16,6 +16,7 @@
  *   --include-web    Include general web search alongside Reddit/X
  *   --strategy=MODE  Search strategy: single|two-phase (default: single)
  *   --phase2-budget=N Max supplemental queries per source (default: 5)
+ *   --include-youtube Include YouTube video search (requires yt-dlp)
  *   --refresh        Bypass cache reads and force fresh search
  *   --no-cache       Disable cache reads and writes
  *   --outdir=PATH    Write output files to PATH instead of default location
@@ -24,6 +25,11 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+	isYtDlpAvailable,
+	parseYouTubeResults,
+	searchYouTube,
+} from './index.js'
 import * as cache from './lib/cache.js'
 import * as config from './lib/config.js'
 import { getDateRange } from './lib/dates.js'
@@ -76,6 +82,7 @@ Options:
   --quick          Faster research with fewer results
   --deep           Comprehensive research with more results
   --include-web    Include general web search alongside Reddit/X
+  --include-youtube Include YouTube video search (requires yt-dlp)
   --refresh        Bypass cache reads and force fresh search
   --no-cache       Disable cache reads and writes
   --outdir=PATH    Write output files to PATH instead of default location
@@ -118,6 +125,7 @@ function parseArgs(args: string[]) {
 	let deep = false
 	let debug = false
 	let includeWeb = false
+	let includeYoutube = false
 	let refresh = false
 	let noCache = false
 	let days = 30
@@ -165,6 +173,8 @@ function parseArgs(args: string[]) {
 			debug = true
 		} else if (arg === '--include-web') {
 			includeWeb = true
+		} else if (arg === '--include-youtube') {
+			includeYoutube = true
 		} else if (arg === '--refresh') {
 			refresh = true
 		} else if (arg === '--no-cache') {
@@ -246,6 +256,7 @@ function parseArgs(args: string[]) {
 		deep,
 		debug,
 		includeWeb,
+		includeYoutube,
 		refresh,
 		noCache,
 		days,
@@ -869,6 +880,44 @@ async function main() {
 		progress.endRedditEnrich()
 	}
 
+	// YouTube search (opt-in via --include-youtube)
+	let youtubeRawItems: Record<string, unknown>[] = []
+	let youtubeError: string | null = null
+
+	if (args.includeYoutube) {
+		if (args.mock) {
+			// Load fixture data in mock mode
+			progress.startYouTube()
+			try {
+				const fixturePath = join(
+					dirname(fileURLToPath(import.meta.url)),
+					'..',
+					'fixtures',
+					'youtube_sample.json',
+				)
+				const fixtureData = JSON.parse(
+					readFileSync(fixturePath, 'utf-8'),
+				) as Record<string, unknown>[]
+				youtubeRawItems = parseYouTubeResults(fixtureData)
+			} catch (e) {
+				youtubeError = `YouTube fixture error: ${e}`
+			}
+			progress.endYouTube(youtubeRawItems.length)
+		} else if (isYtDlpAvailable()) {
+			progress.startYouTube()
+			try {
+				const rawResults = await searchYouTube(args.topic, args.days, depth)
+				youtubeRawItems = parseYouTubeResults(rawResults)
+			} catch (e) {
+				youtubeError = `YouTube search error: ${e}`
+			}
+			progress.endYouTube(youtubeRawItems.length)
+		} else {
+			progress.showError('yt-dlp not installed, skipping YouTube')
+			youtubeError = 'yt-dlp not installed'
+		}
+	}
+
 	// Processing phase
 	progress.startProcessing()
 
@@ -878,6 +927,11 @@ async function main() {
 		toDate,
 	)
 	const normalizedX = normalize.normalizeXItems(xItems, fromDate, toDate)
+	const normalizedYouTube = normalize.normalizeYouTubeItems(
+		youtubeRawItems,
+		fromDate,
+		toDate,
+	)
 
 	const filteredReddit = normalize.filterByDateRange(
 		normalizedReddit,
@@ -885,15 +939,23 @@ async function main() {
 		toDate,
 	)
 	const filteredX = normalize.filterByDateRange(normalizedX, fromDate, toDate)
+	const filteredYouTube = normalize.filterByDateRange(
+		normalizedYouTube,
+		fromDate,
+		toDate,
+	)
 
 	const scoredReddit = score.scoreRedditItems(filteredReddit, args.days)
 	const scoredX = score.scoreXItems(filteredX, args.days)
+	const scoredYouTube = score.scoreYouTubeItems(filteredYouTube, args.days)
 
 	const sortedReddit = score.sortItems(scoredReddit)
 	const sortedX = score.sortItems(scoredX)
+	const sortedYouTube = score.sortItems(scoredYouTube)
 
-	const dedupedReddit = dedupe.dedupeReddit(sortedReddit as schema.RedditItem[])
-	const dedupedX = dedupe.dedupeX(sortedX as schema.XItem[])
+	const dedupedReddit = dedupe.dedupeReddit(sortedReddit)
+	const dedupedX = dedupe.dedupeX(sortedX)
+	const dedupedYouTube = dedupe.dedupeYouTube(sortedYouTube)
 
 	progress.endProcessing()
 
@@ -909,8 +971,10 @@ async function main() {
 	)
 	report.reddit = dedupedReddit
 	report.x = dedupedX
+	report.youtube = dedupedYouTube
 	report.reddit_error = redditError
 	report.x_error = xError
+	report.youtube_error = youtubeError
 	report.from_cache = anyFromCache
 	report.cache_age_hours = maxCacheAge
 	report.context_snippet_md = render.renderContextSnippet(report)

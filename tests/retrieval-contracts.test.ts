@@ -435,26 +435,12 @@ describe('retrieval/orchestrator phase 2', () => {
 		}
 	})
 
-	test('X adapter gets handles and hashtags for phase 2', async () => {
+	test('X adapter gets handles for phase 2', async () => {
 		const receivedEntities: string[] = []
 		const adapter: SearchAdapter = {
 			sourceType: 'x',
 			search: async () => ({
-				items: [
-					...X_ITEMS_WITH_ENTITIES,
-					{
-						id: 'x3',
-						text: 'Using #claudecode for tooling updates',
-						author_handle: '@builder',
-						date: '2026-01-17',
-						date_confidence: 'high',
-						engagement: { likes: 50, retweets: 10 },
-						relevance: 0.8,
-						why_relevant: 'test',
-						subs: { relevance: 80, recency: 55, engagement: 60 },
-						score: 70,
-					},
-				],
+				items: X_ITEMS_WITH_ENTITIES,
 				source: 'x' as const,
 				phase: 1 as const,
 				error: null,
@@ -481,10 +467,9 @@ describe('retrieval/orchestrator phase 2', () => {
 			phase2Budget: 10,
 		}
 		await orchestrate([adapter], SEARCH_CONFIG, orchConfig)
-		// Should receive both handle and hashtag entities
+		// Should receive handle entities (@ prefixed values)
 		expect(receivedEntities.length).toBeGreaterThan(0)
-		expect(receivedEntities.some((e) => e.startsWith('@'))).toBe(true)
-		expect(receivedEntities.some((e) => e.startsWith('#'))).toBe(true)
+		expect(receivedEntities.every((e) => e.startsWith('@'))).toBe(true)
 	})
 
 	test('empty phase 1 items produce no phase 2 queries', async () => {

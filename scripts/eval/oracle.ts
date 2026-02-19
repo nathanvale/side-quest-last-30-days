@@ -21,7 +21,7 @@ function toEntityVariants(entity: string): string[] {
 /**
  * Compare search results against oracle entities.
  * Returns fraction of oracle entities found in a normalized corpus of
- * url/title/snippet/content text, including @/# and multi-word variants.
+ * url/title/snippet/content/text fields, including @/# and multi-word variants.
  */
 export function compareToOracle(
 	items: EvalItem[],
@@ -30,13 +30,21 @@ export function compareToOracle(
 	if (oracleEntities.length === 0) return 1
 	if (items.length === 0) return 0
 	const corpus = items
-		.flatMap((item) => [
-			item.url,
-			item.title ?? '',
-			item.text ?? '',
-			item.snippet ?? '',
-			item.content ?? '',
-		])
+		.flatMap((item) => {
+			const enriched = item as EvalItem & {
+				title?: string
+				text?: string
+				snippet?: string
+				content?: string
+			}
+			return [
+				item.url,
+				enriched.title ?? '',
+				enriched.text ?? '',
+				enriched.snippet ?? '',
+				enriched.content ?? '',
+			]
+		})
 		.map((text) => text.toLowerCase())
 		.join(' ')
 	const found = oracleEntities.filter((entity) =>

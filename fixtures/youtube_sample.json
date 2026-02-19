@@ -1,0 +1,47 @@
+[
+	{
+		"id": "dQw4w9WgXcQ",
+		"title": "Understanding Bun Runtime Performance in 2026",
+		"uploader": "TechTalks",
+		"upload_date": "20260210",
+		"view_count": 15000,
+		"like_count": 800,
+		"comment_count": 45
+	},
+	{
+		"id": "abc123def45",
+		"title": "JavaScript Frameworks Compared - Bun vs Node vs Deno",
+		"uploader": "CodeReview",
+		"upload_date": "20260205",
+		"view_count": 42000,
+		"like_count": 2100,
+		"comment_count": 180
+	},
+	{
+		"id": "xyz789ghi01",
+		"title": "Building CLI Tools with TypeScript and Bun",
+		"uploader": "DevMaster",
+		"upload_date": "20260201",
+		"view_count": 8500,
+		"like_count": 450,
+		"comment_count": 32
+	},
+	{
+		"id": "jkl456mno78",
+		"title": "The State of Package Managers in 2026",
+		"channel": "WebDevSimplified",
+		"upload_date": "20260215",
+		"view_count": 95000,
+		"like_count": 5200,
+		"comment_count": 410
+	},
+	{
+		"id": "pqr012stu34",
+		"title": "Why Bun is Changing the Node.js Ecosystem",
+		"uploader": "Fireship",
+		"upload_date": "20260218",
+		"view_count": 250000,
+		"like_count": 12000,
+		"comment_count": 890
+	}
+]

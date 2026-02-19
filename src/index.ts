@@ -5,6 +5,11 @@
  * Engagement-ranked results with scoring and deduplication.
  */
 
+// YouTube
+export {
+	isYtDlpAvailable,
+	searchYouTube,
+} from './adapters/youtube.js'
 // Cache
 export {
 	acquireCacheLock,
@@ -40,6 +45,7 @@ export {
 	dedupeReddit,
 	dedupeWebsearch,
 	dedupeX,
+	dedupeYouTube,
 	getNgrams,
 	jaccardSimilarity,
 	normalizeText,
@@ -85,6 +91,7 @@ export {
 	filterByDateRange,
 	normalizeRedditItems,
 	normalizeXItems,
+	normalizeYouTubeItems,
 } from './lib/normalize.js'
 // OpenAI Reddit
 export {
@@ -126,14 +133,19 @@ export type {
 	SubScores,
 	WebSearchItem,
 	XItem,
+	YouTubeItem,
 } from './lib/schema.js'
 // Schema factories
-export { createReport } from './lib/schema.js'
+export {
+	createReport,
+	defaultYouTubeItem,
+} from './lib/schema.js'
 // Scoring
 export {
 	scoreRedditItems,
 	scoreWebsearchItems,
 	scoreXItems,
+	scoreYouTubeItems,
 	sortItems,
 } from './lib/score.js'
 // Telemetry contract types
@@ -176,3 +188,8 @@ export {
 } from './lib/websearch.js'
 // xAI X
 export { parseXResponse } from './lib/xai-x.js'
+export {
+	parseYouTubeResults,
+	parseYtDlpJsonLines,
+	youtubeEngagementScore,
+} from './lib/youtube.js'

@@ -1,6 +1,6 @@
 /** Near-duplicate detection for last-30-days skill. */
 
-import type { RedditItem, WebSearchItem, XItem } from './schema.js'
+import type { RedditItem, WebSearchItem, XItem, YouTubeItem } from './schema.js'
 
 /**
  * Normalize text for comparison.
@@ -12,6 +12,13 @@ export function normalizeText(text: string): string {
 		.replace(/[^\w\s]/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
+}
+
+/** Remove trailing slashes without regex backtracking risk. */
+function trimTrailingSlashes(value: string): string {
+	let end = value.length
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1
+	return value.slice(0, end)
 }
 
 /** Get character n-grams from text. */
@@ -103,13 +110,29 @@ export function dedupeX(items: XItem[], threshold = 0.7): XItem[] {
 	return dedupeItems(items, threshold)
 }
 
+/** Dedupe YouTube items by URL (titles are unreliable). */
+export function dedupeYouTube(items: YouTubeItem[]): YouTubeItem[] {
+	const seenUrls = new Set<string>()
+	const result: YouTubeItem[] = []
+
+	for (const item of items) {
+		const urlKey = trimTrailingSlashes(item.url.toLowerCase())
+		if (!seenUrls.has(urlKey)) {
+			seenUrls.add(urlKey)
+			result.push(item)
+		}
+	}
+
+	return result
+}
+
 /** Remove duplicate WebSearch items by URL. */
 export function dedupeWebsearch(items: WebSearchItem[]): WebSearchItem[] {
 	const seenUrls = new Set<string>()
 	const result: WebSearchItem[] = []
 
 	for (const item of items) {
-		const urlKey = item.url.toLowerCase().replace(/\/+$/, '')
+		const urlKey = trimTrailingSlashes(item.url.toLowerCase())
 		if (!seenUrls.has(urlKey)) {
 			seenUrls.add(urlKey)
 			result.push(item)
