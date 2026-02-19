@@ -104,8 +104,8 @@ async function runPhase1(
  * For each adapter that implements searchSupplemental, creates
  * supplemental queries based on extracted entities:
  * - Reddit adapters: top subreddits (up to phase2Budget)
- * - X adapters: top handles (up to phase2Budget)
- * - Other adapters: top terms (up to phase2Budget)
+ * - X adapters: top handles + hashtags (up to phase2Budget)
+ * - Other adapters: top hashtags + terms (up to phase2Budget)
  *
  * All supplemental queries run in parallel. Failures are captured
  * per-query and do not affect other results.
@@ -174,8 +174,8 @@ async function runPhase2(
 /**
  * Select entities relevant to an adapter based on its source type.
  *
- * Reddit adapters get subreddits, X adapters get handles,
- * and other adapters get the top terms.
+ * Reddit adapters get subreddits, X adapters get handles + hashtags,
+ * and other adapters get hashtags + top terms.
  */
 function getEntitiesForAdapter(
 	adapter: SearchAdapter,
@@ -185,9 +185,9 @@ function getEntitiesForAdapter(
 		case 'reddit':
 			return entities.subreddits
 		case 'x':
-			return entities.handles
+			return [...entities.handles, ...entities.hashtags]
 		default:
-			return entities.terms
+			return [...entities.hashtags, ...entities.terms]
 	}
 }
 
