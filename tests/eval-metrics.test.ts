@@ -97,6 +97,52 @@ describe('trendRecallAtK', () => {
 		const items: EvalItem[] = [{ date: null, score: 90, url: 'https://Reddit.com/R/ReactJS' }]
 		expect(trendRecallAtK(items, ['r/reactjs'], 1)).toBe(1)
 	})
+
+	test('matches handle and hashtag entities against URL-compatible variants', () => {
+		const items: EvalItem[] = [
+			{
+				date: null,
+				score: 90,
+				url: 'https://x.com/anthropicai/status/123',
+			},
+			{
+				date: null,
+				score: 80,
+				url: 'https://example.com/topics/claude',
+			},
+		]
+		expect(trendRecallAtK(items, ['@AnthropicAI', '#claude'], 2)).toBe(1)
+	})
+
+	test('matches multi-word entities in title/snippet/content corpus', () => {
+		const items: EvalItem[] = [
+			{
+				date: null,
+				score: 90,
+				url: 'https://example.com/post/1',
+				title: 'A practical guide to server actions',
+			},
+			{
+				date: null,
+				score: 80,
+				url: 'https://example.com/post/2',
+				snippet: 'How to reason about chain of thought in evaluations',
+			},
+		]
+		expect(trendRecallAtK(items, ['server actions', 'chain of thought'], 2)).toBe(1)
+	})
+
+	test('matches entities in x-style text field', () => {
+		const items: EvalItem[] = [
+			{
+				date: null,
+				score: 90,
+				url: 'https://x.com/example/status/123',
+				text: 'OpenAI released o3 with strong reasoning benchmarks',
+			},
+		]
+		expect(trendRecallAtK(items, ['o3', 'reasoning'], 1)).toBe(1)
+	})
 })
 
 // ---------------------------------------------------------------------------
