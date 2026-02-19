@@ -65,7 +65,6 @@ function pick<T>(arr: T[]): T {
 class Spinner {
 	private message: string
 	private color: string
-	private running = false
 	private timer: ReturnType<typeof setInterval> | null = null
 	private frameIdx = 0
 	private shownStatic = false
@@ -76,7 +75,6 @@ class Spinner {
 	}
 
 	start(): void {
-		this.running = true
 		if (IS_TTY) {
 			this.timer = setInterval(() => {
 				const frame = SPINNER_FRAMES[this.frameIdx % SPINNER_FRAMES.length]
@@ -99,7 +97,6 @@ class Spinner {
 	}
 
 	stop(finalMessage = ''): void {
-		this.running = false
 		if (this.timer) {
 			clearInterval(this.timer)
 			this.timer = null
