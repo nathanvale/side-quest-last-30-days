@@ -1,0 +1,66 @@
+name: Dismiss stale bot reviews
+on:
+  pull_request:
+    types: [synchronize]
+permissions:
+  pull-requests: write
+concurrency:
+  group: dismiss-reviews-${{ github.head_ref }}
+  cancel-in-progress: true
+jobs:
+  dismiss:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dismiss stale CHANGES_REQUESTED bot reviews
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          BOTS="coderabbitai[bot] copilot[bot] github-actions[bot]"
+
+          # Get the timestamp of the latest commit on the PR
+          COMMIT_DATE=$(gh api "repos/${REPO}/git/commits/${HEAD_SHA}" \
+            --jq '.committer.date')
+
+          echo "Latest commit: ${HEAD_SHA:0:7} at ${COMMIT_DATE}"
+
+          # Fetch all reviews on the PR (paginate for long-lived PRs)
+          REVIEWS=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/reviews")
+
+          # Filter to CHANGES_REQUESTED reviews from known bots, submitted before the latest commit
+          echo "${REVIEWS}" | jq -c '.[]' | while IFS= read -r review; do
+            STATE=$(echo "${review}" | jq -r '.state')
+            USER=$(echo "${review}" | jq -r '.user.login')
+            REVIEW_ID=$(echo "${review}" | jq -r '.id')
+            SUBMITTED=$(echo "${review}" | jq -r '.submitted_at')
+
+            # Only process CHANGES_REQUESTED reviews
+            [ "${STATE}" != "CHANGES_REQUESTED" ] && continue
+
+            # Only process reviews from known bots
+            IS_BOT=false
+            for bot in ${BOTS}; do
+              if [ "${USER}" = "${bot}" ]; then
+                IS_BOT=true
+                break
+              fi
+            done
+            [ "${IS_BOT}" = "false" ] && continue
+
+            # Strict < comparison: only dismiss if review predates the commit
+            if [ "$(date -d "${SUBMITTED}" +%s)" -lt "$(date -d "${COMMIT_DATE}" +%s)" ]; then
+              echo "Dismissing review ${REVIEW_ID} from ${USER} (submitted ${SUBMITTED})"
+              gh api -X PUT "repos/${REPO}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}/dismissals" \
+                -f message="Auto-dismissed: new commits pushed after this review. The bot will re-review automatically." \
+                -f event="DISMISS"
+            else
+              echo "Keeping review ${REVIEW_ID} from ${USER} (submitted ${SUBMITTED}, not before commit)"
+            fi
+          done
+
+          echo "Done."

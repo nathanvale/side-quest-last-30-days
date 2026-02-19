@@ -1,399 +1,378 @@
-# bun-typescript-starter
+# @side-quest/last-30-days
 
-Modern TypeScript starter template with enterprise-grade tooling.
+[![npm version](https://img.shields.io/npm/v/@side-quest/last-30-days)](https://www.npmjs.com/package/@side-quest/last-30-days)
+[![CI](https://github.com/nathanvale/side-quest-last-30-days/actions/workflows/pr-quality.yml/badge.svg)](https://github.com/nathanvale/side-quest-last-30-days/actions/workflows/pr-quality.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node >=22.20](https://img.shields.io/badge/node-%3E%3D22.20-brightgreen)](https://nodejs.org)
+
+Research any topic from the last 30 days across Reddit, X, YouTube, and web -- engagement-ranked results.
+
+---
 
 ## Features
 
-- **Bun** - Fast all-in-one JavaScript runtime and toolkit
-- **TypeScript 5.9+** - Strict mode, ESM only
-- **Biome** - Lightning-fast linting and formatting (replaces ESLint + Prettier)
-- **Vitest** - Fast unit testing with native Bun support
-- **Changesets** - Automated versioning and changelog generation
-- **GitHub Actions** - Comprehensive CI/CD with OIDC npm publishing
-- **Conventional Commits** - Enforced via commitlint + Husky
+- **Multi-source search** -- Reddit (via OpenAI Responses API), X/Twitter (via xAI Responses API), YouTube (via yt-dlp), and general web search
+- **Engagement-ranked results** -- multi-factor scoring: relevance x recency x engagement, with trend-aware momentum scoring
+- **Smart deduplication** -- N-gram Jaccard similarity (70% threshold) for Reddit/X; exact video-ID matching for YouTube
+- **Two-phase retrieval** -- phase 1 parallel search + optional phase 2 entity-driven supplemental queries
+- **Filesystem cache** -- versioned cache keys, file locking, atomic writes, stale-cache fallback on rate-limit errors
+- **Multiple output modes** -- compact markdown, full JSON, full markdown report, reusable context snippet, or file path
+- **CLI + library** -- usable as a command-line tool or imported as a typed npm package
+- **Mock mode** -- fixture-based testing without API keys (`--mock`)
+- **Zero runtime deps** -- only `@side-quest/core`; everything else is native (`fetch`, `node:fs`, built-in JSON)
+
+---
+
+## Prerequisites
+
+| Requirement | Notes |
+|-------------|-------|
+| Node.js `>=22.20` or [Bun](https://bun.sh) | Runtime |
+| `OPENAI_API_KEY` | Required for Reddit search |
+| `XAI_API_KEY` | Required for X/Twitter search |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) in `PATH` | Required for `--include-youtube` |
+
+Both API keys are optional -- the CLI falls back gracefully to whatever sources are available.
+
+---
+
+## Installation
+
+```bash
+# npm (global)
+npm install -g @side-quest/last-30-days
+
+# bun (global)
+bun add -g @side-quest/last-30-days
+
+# Library only (no global install)
+bun add @side-quest/last-30-days
+```
+
+---
 
 ## Quick Start
 
-### Prerequisites
-
-- [Bun](https://bun.sh) installed (`curl -fsSL https://bun.sh/install | bash`)
-- [GitHub CLI](https://cli.github.com) installed and authenticated (`gh auth login`)
-- [npm account](https://www.npmjs.com) with a granular access token (see [NPM Token Setup](#npm-token-setup))
-
-### Option A: GitHub CLI (Recommended)
-
-Create a new repo from this template and set it up in one command:
-
 ```bash
-# Create repo from template
-gh repo create myusername/my-lib --template nathanvale/bun-typescript-starter --public --clone
+# Research a topic using all available sources
+last-30-days "Claude Code"
 
-# Run setup (interactive)
-cd my-lib
-bun run setup
+# Deep search with JSON output
+last-30-days "React Server Components" --deep --emit=json
+
+# Reddit only, last 7 days
+last-30-days "Bun 1.2" --sources=reddit --days=7
+
+# Include YouTube results
+last-30-days "AI agents" --include-youtube --emit=json
+
+# Two-phase retrieval (extracts entities from phase 1, runs supplemental queries)
+last-30-days "TypeScript 5.9" --strategy=two-phase
 ```
 
-### Option B: CLI Mode (Non-Interactive)
-
-For automated/scripted setups, pass all arguments via CLI flags:
-
-```bash
-# Create repo from template
-gh repo create myusername/my-lib --template nathanvale/bun-typescript-starter --public --clone
-cd my-lib
-
-# Run setup with all arguments (no prompts)
-bun run setup -- \
-  --name "@myusername/my-lib" \
-  --description "My awesome library" \
-  --author "Your Name" \
-  --yes
-```
-
-### Option C: degit
-
-```bash
-npx degit nathanvale/bun-typescript-starter my-lib
-cd my-lib
-bun run setup
-```
-
-## Setup Script
-
-The setup script configures your project and optionally creates the GitHub repository with all settings pre-configured.
-
-### Interactive Mode
-
-```bash
-bun run setup
-```
-
-Prompts for:
-- Package name (e.g., `@myusername/my-lib` or `my-lib`)
-- Repository name
-- GitHub username/org
-- Project description
-- Author name
-
-### CLI Mode
-
-```bash
-bun run setup -- [options]
-```
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--name` | `-n` | Package name (e.g., `@myusername/my-lib`) |
-| `--repo` | `-r` | Repository name (defaults to package name) |
-| `--user` | `-u` | GitHub username/org (auto-detected from `gh`) |
-| `--description` | `-d` | Project description |
-| `--author` | `-a` | Author name |
-| `--yes` | `-y` | Skip confirmation prompts (auto-yes) |
-| `--no-github` | | Skip GitHub repo creation/configuration |
-| `--help` | `-h` | Show help |
-
-### What Setup Does
-
-1. **Configures files** - Replaces placeholders in `package.json` and `.changeset/config.json`
-2. **Installs dependencies** - Runs `bun install`
-3. **Creates initial commit** - Commits all configured files
-4. **Creates GitHub repo** (if it doesn't exist) - Uses `gh repo create`
-5. **Configures GitHub settings**:
-   - Enables workflow permissions for PR creation
-   - Sets squash-only merging
-   - Enables auto-delete branches
-   - Enables auto-merge
-   - Configures branch protection rules
-
-## Complete Setup Guide
-
-This guide walks through the full process of creating a new package and publishing it to npm.
-
-### Step 1: Create Repository
-
-```bash
-# Create and clone from template
-gh repo create myusername/my-lib --template nathanvale/bun-typescript-starter --public --clone
-cd my-lib
-```
-
-### Step 2: Run Setup
-
-```bash
-# Interactive mode
-bun run setup
-
-# Or non-interactive mode
-bun run setup -- \
-  --name "@myusername/my-lib" \
-  --description "My awesome library" \
-  --author "Your Name" \
-  --yes
-```
-
-### Step 3: Install Changeset Bot
-
-Install the [Changeset Bot](https://github.com/apps/changeset-bot) GitHub App on your repo. It comments on every PR with changeset status so you know at a glance whether version bumps are queued.
-
-1. Visit https://github.com/apps/changeset-bot
-2. Click **Install** and select your repository
-3. Grant the requested permissions (pull request read/write, contents read-only)
-
-> The bot works alongside the `autogenerate-changeset.yml` workflow — the bot comments instantly, and the workflow auto-generates a changeset file if one is missing.
-
-### Step 4: Configure NPM Token
-
-Before publishing, you need to add your npm token to GitHub secrets.
-
-#### Create npm Granular Access Token
-
-1. Go to [npmjs.com](https://www.npmjs.com) → Access Tokens → Generate New Token → **Granular Access Token**
-
-2. Configure the token:
-   - **Token name:** `github-actions-publish` (or any name)
-   - **Expiration:** 90 days (maximum for granular tokens)
-   - **Packages and scopes:** Select "All packages" for new packages, or specific packages for existing ones
-   - **Permissions:** Read and write
-   - **IMPORTANT:** Check **"Bypass two-factor authentication for automation"**
-
-   > Without "Bypass 2FA", CI/CD publishing will fail with "Access token expired or revoked"
-
-3. Copy the token (starts with `npm_`)
-
-#### Add Token to GitHub Secrets
-
-```bash
-# If you have NPM_TOKEN in your environment
-echo "$NPM_TOKEN" | gh secret set NPM_TOKEN --repo myusername/my-lib
-
-# Or set it interactively
-gh secret set NPM_TOKEN --repo myusername/my-lib
-# Paste your token when prompted
-```
-
-### Step 5: Create Initial Release
-
-Create a changeset describing your initial release:
-
-```bash
-# Create a feature branch
-git checkout -b feat/initial-release
-
-# Create changeset file
-mkdir -p .changeset
-cat > .changeset/initial-release.md << 'EOF'
----
-"@myusername/my-lib": minor
 ---
 
-Initial release
-EOF
+## Configuration
 
-# Commit and push
-git add .changeset/initial-release.md
-git commit -m "chore: add changeset for initial release"
-git push -u origin feat/initial-release
-
-# Create PR
-gh pr create --title "chore: add changeset for initial release" --body "Initial release"
-```
-
-### Step 6: Merge and Publish
-
-1. **Wait for CI checks** to pass on your PR
-2. **Merge the PR** - This triggers the changesets workflow
-3. **A "Version Packages" PR** will be automatically created
-4. **Merge the Version PR** - This triggers the publish workflow
-5. **Package is published to npm!**
+API keys are loaded from environment variables first, then from `~/.config/last-30-days/.env`.
 
 ```bash
-# Check your package
-npm view @myusername/my-lib
+# ~/.config/last-30-days/.env
+OPENAI_API_KEY=sk-...
+XAI_API_KEY=xai-...
+
+# Optional: pin or control model selection
+OPENAI_MODEL_POLICY=auto          # auto | pinned
+OPENAI_MODEL_PIN=gpt-5            # only used when policy=pinned
+XAI_MODEL_POLICY=latest           # latest | stable
+XAI_MODEL_PIN=grok-4-1-fast       # only used when policy=pinned
+
+# Optional: override cache TTL (hours)
+LAST_30_DAYS_CACHE_TTL=1
 ```
 
-### Step 7: Configure OIDC Trusted Publishing (Optional)
+Cache files live at `~/.cache/last-30-days/`. Output files (context mode) write to `~/.local/share/last-30-days/out/`.
 
-After the first publish, you can enable token-free publishing via OIDC:
+---
 
-1. Go to [npmjs.com](https://www.npmjs.com) → Your Package → Settings → Publishing Access
-2. Click "Add Trusted Publisher"
-3. Configure:
-   - **Owner:** Your GitHub username/org
-   - **Repository:** Your repo name
-   - **Workflow file:** `publish.yml`
-4. Save changes
-5. Optionally remove the `NPM_TOKEN` secret from GitHub
+## CLI Reference
 
-Now future releases will publish automatically without any tokens!
+```
+last-30-days <topic> [options]
+```
 
-## NPM Token Setup
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--emit=MODE` | `compact` | Output format: `compact`, `json`, `md`, `context`, `path` |
+| `--sources=MODE` | `auto` | Source selection: `auto`, `reddit`, `x`, `both`, `web` |
+| `--days=N` | `30` | Lookback window in days (1-365) |
+| `--quick` | - | Fewer results, faster |
+| `--deep` | - | More results, comprehensive |
+| `--include-web` | - | Add general web search alongside Reddit/X |
+| `--include-youtube` | - | Add YouTube video search (requires yt-dlp) |
+| `--strategy=MODE` | `single` | Search strategy: `single` or `two-phase` |
+| `--phase2-budget=N` | `5` | Max supplemental queries per source in phase 2 (1-50) |
+| `--refresh` | - | Bypass cache reads, force fresh search |
+| `--no-cache` | - | Disable cache reads and writes entirely |
+| `--outdir=PATH` | - | Write output files to PATH instead of default location |
+| `--mock` | - | Use fixture data instead of real API calls |
+| `--debug` | - | Enable verbose debug logging |
+| `-h`, `--help` | - | Show help message |
 
-### Why Granular Tokens?
+### Output modes
 
-As of December 2024, npm has revoked all classic tokens. You must use **granular access tokens** for CI/CD publishing.
+| Mode | Description |
+|------|-------------|
+| `compact` | Markdown summary optimized for Claude to synthesize (default) |
+| `json` | Full `Report` object as JSON |
+| `md` | Full markdown report |
+| `context` | Writes a reusable context snippet to disk |
+| `path` | Prints the path to the context file on disk |
 
-### Token Requirements
+### Sources
 
-| Setting | Value | Why |
-|---------|-------|-----|
-| Type | Granular Access Token | Classic tokens no longer work |
-| Packages | All packages (for new) or specific | Allows publishing |
-| Permissions | Read and write | Required to publish |
-| **Bypass 2FA** | **Checked** | **Required for CI/CD** |
+| Value | Requirement |
+|-------|-------------|
+| `auto` | Uses all keys that are configured |
+| `reddit` | `OPENAI_API_KEY` |
+| `x` | `XAI_API_KEY` |
+| `both` | Both keys |
+| `web` | No keys required (web-search fallback) |
 
-### Common Errors
+---
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| "Access token expired or revoked" | Token doesn't have "Bypass 2FA" | Create new token with 2FA bypass |
-| "E404 Not Found" | Token doesn't have publish permissions | Check token has read/write access |
-| "E403 Forbidden" | Package scope mismatch | Ensure token covers your package scope |
+## Library Usage
 
-## What's Included
+`@side-quest/last-30-days` ships a fully-typed barrel export. All core functions are available for programmatic use.
 
-### CI/CD Workflows
+### Scoring and deduplication
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `pr-quality.yml` | PR | Lint, Typecheck, Test with coverage |
-| `publish.yml` | Push to main | Auto-publish via Changesets |
-| `autogenerate-changeset.yml` | PR | Auto-generate changeset if missing |
-| `commitlint.yml` | PR | Enforce conventional commits |
-| `pr-title.yml` | PR | Validate PR title format |
-| `security.yml` | Push/Schedule | CodeQL + Trivy scanning |
-| `dependency-review.yml` | PR | Supply chain security |
-| `dependabot-auto-merge.yml` | Dependabot PR | Auto-merge patch updates |
+```typescript
+import {
+  scoreRedditItems,
+  scoreXItems,
+  scoreYouTubeItems,
+  dedupeReddit,
+  dedupeX,
+  dedupeYouTube,
+  sortItems,
+} from '@side-quest/last-30-days'
 
-### GitHub Apps
+const scored = scoreRedditItems(rawItems)
+const sorted = sortItems(scored)
+const unique = dedupeReddit(scored)
+```
 
-| App | Purpose |
-|-----|---------|
-| [Changeset Bot](https://github.com/apps/changeset-bot) | PR comments with changeset status |
+### Trend-aware scoring
+
+```typescript
+import { computeTrendScores } from '@side-quest/last-30-days'
+
+const trendScores = computeTrendScores([...redditItems, ...xItems, ...youtubeItems])
+```
+
+### YouTube search (requires yt-dlp)
+
+```typescript
+import { isYtDlpAvailable, searchYouTube } from '@side-quest/last-30-days'
+
+if (isYtDlpAvailable()) {
+  const results = await searchYouTube('Claude Code', 30, 'default')
+}
+```
+
+### Two-phase retrieval orchestration
+
+```typescript
+import {
+  orchestrate,
+  defaultOrchestratorConfig,
+} from '@side-quest/last-30-days'
+import type { SearchAdapter, AdapterSearchConfig } from '@side-quest/last-30-days'
+
+const results = await orchestrate(
+  adapters,
+  config,
+  { ...defaultOrchestratorConfig(), strategy: 'two-phase', phase2Budget: 5 },
+)
+```
+
+### Entity extraction
+
+```typescript
+import { extractEntities } from '@side-quest/last-30-days'
+
+const entities = extractEntities([...redditItems, ...xItems])
+// entities.handles, entities.subreddits, entities.hashtags, entities.terms
+```
+
+### Schema types
+
+```typescript
+import type {
+  Report,
+  RedditItem,
+  XItem,
+  YouTubeItem,
+  WebSearchItem,
+} from '@side-quest/last-30-days'
+```
+
+---
+
+## Architecture
+
+### The Newsroom Metaphor
+
+The codebase is structured as an editorial newsroom:
+
+```
+CLI (Editor-in-Chief)        src/cli.ts
+  |
+  |-- openai-reddit.ts       Reporter   -> Reddit via OpenAI Responses API
+  |-- xai-x.ts               Reporter   -> X/Twitter via xAI Responses API
+  |-- youtube.ts             Reporter   -> YouTube via yt-dlp
+  |-- websearch.ts           Stringer   -> Delegates to Claude's WebSearch tool
+  |-- reddit-enrich.ts       Fact-Check -> Verifies engagement via Reddit JSON API
+  |-- entity-extract.ts      Research   -> Extracts @handles, r/subs, #tags, terms
+  |-- trend.ts               Analysis   -> Momentum + source diversity scoring
+  |-- score.ts + dedupe.ts   Copy Desk  -> Normalizes, ranks, deduplicates
+  |-- render.ts              Layout     -> Output: compact, JSON, markdown, context
+  |-- retrieval/             Desk       -> Two-phase adapter orchestration
+```
+
+### Entry Points
+
+| File | Role |
+|------|------|
+| `src/index.ts` | Pure barrel export -- no side effects. All library exports. |
+| `src/cli.ts` | CLI orchestration and I/O. All side effects live here. |
+
+Both are independent entry points compiled by bunup with code splitting.
+
+### Key Design Decisions
+
+- **WebSearch delegation** -- The CLI outputs structured JSON instructions for Claude to use its WebSearch tool. It does not search the web itself.
+- **Versioned cache keys** -- Keys hash topic + source + depth + model + prompt version + date range.
+- **Stale cache fallback** -- On transient 429 rate-limit errors, cache entries up to 24 hours old are served rather than failing hard.
+- **Deduplication strategies** -- Reddit and X use 3-character N-gram Jaccard similarity at 70% threshold. YouTube uses exact video ID matching because IDs are structural identifiers, not fuzzy text.
+- **Trend scoring** -- `trendScore = momentum * 0.7 + sourceDiversityBonus * 0.3`. High-engagement items beat high-keyword-match low-engagement items.
+
+---
+
+## Development
+
+### Setup
+
+```bash
+bun install
+bun run dev          # Watch mode
+```
 
 ### Scripts
 
 ```bash
-# Development
-bun dev              # Watch mode
-bun run build        # Build for production
+# Build
+bun run build        # Compile via bunup -> dist/
 bun run clean        # Remove dist/
 
 # Quality
+bun run lint         # Biome lint check
+bun run lint:fix     # Biome lint auto-fix
+bun run format       # Biome format (write)
 bun run check        # Biome lint + format (write)
-bun run lint         # Lint only
-bun run format       # Format only
-bun run typecheck    # TypeScript type check
-bun run validate     # Full quality check (lint + types + build + test)
+bun run typecheck    # tsc --noEmit
+bun run validate     # Full pipeline: lint + typecheck + build + test
 
 # Testing
-bun test             # Run tests
+bun test             # Run all tests
 bun test --watch     # Watch mode
-bun run coverage     # With coverage report
+bun test --coverage  # With coverage
 
-# Publishing
-bun run version:gen  # Create changeset interactively
-bun run release      # Publish to npm (CI handles this)
+# Package hygiene
+bun run hygiene      # publint + attw checks
+bun run pack:dry     # Inspect package contents
+
+# Versioning
+bun run version:gen  # Interactive changeset generation
 ```
 
-## Project Structure
+### Testing
 
-```
-├── .github/
-│   ├── workflows/        # CI/CD workflows
-│   ├── actions/          # Reusable composite actions
-│   └── scripts/          # CI helper scripts
-├── .husky/               # Git hooks
-├── .changeset/           # Changeset config
-├── src/
-│   └── index.ts          # Main entry point
-├── tests/
-│   └── index.test.ts     # Example test
-├── biome.json            # Biome config
-├── tsconfig.json         # TypeScript config
-├── bunup.config.ts       # Build config
-└── package.json
-```
+Tests use the Bun native test runner. All test files live in `tests/`.
 
-## Configuration
+| File | Scope |
+|------|-------|
+| `tests/index.test.ts` | Integration tests -- CLI subprocess via `Bun.spawnSync()` |
+| `tests/youtube.test.ts` | YouTube parsing, scoring, deduplication, serialization |
+| `tests/youtube-adapter.test.ts` | `buildYouTubeSearchArgs` unit tests |
+| `tests/entity-extract.test.ts` | Entity extraction logic |
+| `tests/trend.test.ts` | Trend scoring and momentum |
+| `tests/retrieval-contracts.test.ts` | Retrieval adapter interface contracts |
+| `tests/eval-metrics.test.ts` | Evaluation metric functions |
+| `tests/eval-oracle.test.ts` | Test oracle |
+| `tests/telemetry-contract.test.ts` | Telemetry schema validation |
 
-### Biome
+The `--mock` flag enables fixture-based testing without API keys. Fixtures live in `fixtures/`.
 
-Configured in `biome.json`:
-- Tab indentation
-- 80 character line width
-- Single quotes
-- Organize imports on save
+**Coverage gate:** 80% minimum on lines, branches, and functions (enforced in CI).
 
-### TypeScript
+### Code Style
 
-- Strict mode enabled
-- ESM output
-- Source maps and declarations
-
-### Changesets
-
-- GitHub changelog format
-- Public npm access
-- Provenance enabled
-
-## Branch Protection
-
-The setup script automatically configures branch protection for `main`:
-
-- Require pull request before merging
-- Require status checks to pass ("All checks passed")
-- Require linear history
-- No force pushes
-- No deletions
-
-If you need to manually configure it:
-
-1. Go to Settings → Branches → Add rule
-2. Branch name pattern: `main`
-3. Enable the settings above
-
-## Troubleshooting
-
-### Setup script hangs
-
-If running in a non-TTY environment (like some CI systems), use CLI flags:
-
-```bash
-bun run setup -- --name "my-lib" --description "desc" --author "name" --yes
-```
-
-### CI can't create PRs
-
-The setup script enables this automatically. If you need to do it manually:
-
-```bash
-gh api repos/OWNER/REPO/actions/permissions/workflow \
-  --method PUT \
-  -f default_workflow_permissions=write \
-  -F can_approve_pull_request_reviews=true
-```
-
-### Version PR checks don't run
-
-Bot-created PRs don't trigger workflows. Push an empty commit:
-
-```bash
-git fetch origin
-git checkout changeset-release/main
-git commit --allow-empty -m "chore: trigger CI"
-git push
-```
-
-### npm publish fails with 404
-
-1. Ensure your npm token has "Bypass 2FA" checked
-2. Ensure token has "Read and write" permissions
-3. Ensure token covers "All packages" (for new packages)
-
-## License
-
-MIT
+- **Formatter:** Biome -- tabs, single quotes, trailing commas, 80-character line width
+- **Test files:** 100-character line width
+- **TypeScript:** strict mode, `verbatimModuleSyntax`, bundler module resolution
+- **JSDoc required** on all exported functions
 
 ---
 
-Built with [bun-typescript-starter](https://github.com/nathanvale/bun-typescript-starter)
+## CI/CD
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `pr-quality.yml` | PR, push to main | Lint, typecheck, tests, coverage gate (80%), shell script lint |
+| `publish.yml` | Push to main, manual | Stable releases (changesets), pre-releases, canary snapshots |
+| `commitlint.yml` | PR | Enforce conventional commits |
+| `pr-title.yml` | PR | Validate PR title format |
+| `security.yml` | Schedule | OSV dependency scanning |
+| `codeql.yml` | Schedule | CodeQL static analysis |
+| `dependency-review.yml` | PR | Supply chain security review |
+| `dependabot-auto-merge.yml` | Dependabot PR | Auto-merge patch/minor updates |
+| `dismiss-stale-bot-reviews.yml` | PR synchronize | Auto-dismiss stale bot CHANGES_REQUESTED reviews |
+| `node-compat.yml` | Schedule | Node.js version compatibility checks |
+| `package-hygiene.yml` | PR | publint + attw package correctness |
+| `workflow-lint.yml` | PR | actionlint on workflow files |
+
+Publishing uses OIDC trusted publishing (npm 11.6+ / Node 24). No long-lived `NPM_TOKEN` is required once OIDC is configured at npmjs.com.
+
+---
+
+## Contributing
+
+All commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/) format, enforced by commitlint + Husky:
+
+```
+feat: add YouTube source adapter
+fix(youtube): honor lookback window and preserve id case in dedupe
+docs: rebuild CLAUDE.md
+```
+
+### Changeset workflow
+
+1. Create a feature branch from `main`
+2. Make changes
+3. Run `bun run version:gen` to create a changeset
+4. Push the branch and open a PR
+5. CI checks must pass (lint, typecheck, tests with 80% coverage)
+6. Merge the PR -- the Changesets bot opens a "Version Packages" PR
+7. Merge the Version PR to trigger publish to npm
+
+---
+
+## License
+
+MIT -- see [LICENSE](./LICENSE).
+
+---
+
+Built by [Nathan Vale](https://github.com/nathanvale)
