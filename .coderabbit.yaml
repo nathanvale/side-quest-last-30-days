@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: "en-US"
+tone_instructions: "Focus on architectural correctness, algorithmic bugs, and security. Skip stylistic issues handled by Biome. Be concise."
 early_access: false
 
 reviews:
@@ -50,6 +51,16 @@ reviews:
         testing. --mock flag enables fixture-based testing. Don't flag missing
         JSDoc in test files. Focus on: assertion completeness, edge case
         coverage, mock isolation.
+    - path: "scripts/**"
+      instructions: |
+        Build and eval scripts running in Bun. Check for: proper exit
+        codes, JSON output parseable by CI, no hardcoded paths.
+        Eval harness outputs must match the locked scorecard schema.
+    - path: "specs/**"
+      instructions: |
+        Architecture specs and telemetry contracts. Schemas in specs/
+        are immutable once locked (v1). Flag any changes to locked
+        schemas without a version bump (e.g. v1 -> v2).
     - path: ".github/workflows/**"
       instructions: |
         CI/CD workflows. Enforce actionlint rules strictly. Check for:
@@ -96,6 +107,12 @@ reviews:
           Pass/fail: src/cli.ts must only import from './index.js' or
           external packages. Any direct import from './lib/' submodules = FAIL.
           The barrel export pattern must be respected.
+      - name: "Undocumented Breaking Changes"
+        mode: "warning"
+        instructions: |
+          Pass/fail: All breaking changes to CLI flags, JSON output schema,
+          cache key format, or public API exports must be documented in the
+          PR description. Exclude purely internal changes.
 
   tools:
     biome:
@@ -120,6 +137,11 @@ knowledge_base:
   opt_out: false
   web_search:
     enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - CLAUDE.md
+      - .claude/CLAUDE.md
   learnings:
     scope: "auto"
   issues:

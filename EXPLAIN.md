@@ -109,6 +109,16 @@ For Reddit, engagement is: `0.55 * log1p(score) + 0.4 * log1p(comments) + 0.05 *
 
 For X, it's: `0.55 * log1p(likes) + 0.25 * log1p(reposts) + 0.15 * log1p(replies) + 0.05 * log1p(quotes)`
 
+### Trend-Aware Extension (PR-007)
+
+When trend metadata exists for an item, scoring reserves **10%** for a trend component (`trendWeight`, configurable in `score.ts`) and scales the base weights proportionally. The trend component itself is:
+
+- `momentum` (0..1): date freshness plus source-native engagement proxy
+- `sourceDiversityBonus` (0..1): confirmation across multiple source types
+- `trendScore = momentum * 0.7 + sourceDiversityBonus * 0.3`
+
+Trend values are attached to item output as `momentum`, `trend_score`, and `subs.trend_score`.
+
 The `log1p` is important. Without it, a viral post with 50,000 upvotes would dominate everything else. The logarithm compresses the scale so a 100-upvote post and a 50,000-upvote post are different but not *500x* different. Both clearly resonated with people.
 
 Engagement scores are then normalized to 0-100 across the result set -- relative ranking within a given search, not absolute values. A post with the highest engagement in your results gets 100, the lowest gets 0. This prevents cross-topic score comparisons from being meaningless.

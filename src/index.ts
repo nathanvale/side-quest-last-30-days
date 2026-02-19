@@ -176,6 +176,14 @@ export type {
 	TopTrendV1,
 	TrendCategory,
 } from './lib/telemetry-contract.js'
+// Trend scoring
+export type { TrendScore } from './lib/trend.js'
+export {
+	computeTrendScores,
+	momentumScore,
+	sourceDiversityBonus,
+	trendScore,
+} from './lib/trend.js'
 // WebSearch
 export {
 	extractDateFromSnippet,
