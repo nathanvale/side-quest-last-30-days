@@ -235,8 +235,8 @@ Persistence layer (watchlist + briefings), observability telemetry, and CI relea
 - Create `src/lib/retrieval/query-policy.ts`:
   - Default budget/weight configs per depth level (quick/default/deep)
   - Phase 2 budget caps (max supplemental queries per source)
-- Wrap existing `searchRedditTask` and `searchXTask` as `SearchAdapter` implementations
-  - Thin adapter layer, NOT a rewrite -- delegate to existing functions
+- ~~Wrap existing `searchRedditTask` and `searchXTask` as `SearchAdapter` implementations~~
+  - **DEFERRED to PR-004**: Thin adapter wiring into cli.ts requires the entity extraction module (PR-003) to exist first. The contract layer stands alone until then.
 - Update `src/index.ts` to export new retrieval types
 - Add contract tests verifying adapter compliance and deterministic merge
 - Run `bun run validate` to ensure no regressions
@@ -752,3 +752,29 @@ Governance rules:
 2. Any breaking shape or formula change requires new `v2` schema files.
 3. The sample fixture must remain valid against the runtime validator and formula locks.
 4. `src/lib/telemetry-contract.ts` is the TypeScript source-of-truth for implementation.
+
+## PR-002 Checkpoint (e384c7e)
+
+### Completed
+- `src/lib/retrieval/types.ts` -- SearchAdapter, PhaseResult, AdapterSearchConfig, OrchestratorConfig, MergePolicy, SourceType, SearchItem
+- `src/lib/retrieval/orchestrator.ts` -- Phase-1-only parallel orchestration with timeout and error capture
+- `src/lib/retrieval/query-policy.ts` -- QueryBudget per depth level (quick/default/deep)
+- `tests/retrieval-contracts.test.ts` -- 16 contract tests with mock adapters
+- `src/index.ts` -- All retrieval types and functions exported
+
+### Deferred to PR-004
+- **CLI adapter wiring**: Thin wrappers around `searchRedditTask`/`searchXTask` that implement `SearchAdapter` and plug into the orchestrator. cli.ts is untouched in PR-002.
+- **Phase-2 entity flow**: Requires entity extraction (PR-003) before the orchestrator can drive supplemental searches.
+
+### Known type gaps (non-blocking)
+- `SourceType` includes `'youtube'` but `SearchItem` has no `YouTubeItem` yet (PR-006).
+- `OrchestratorConfig.strategy` and `phase2Budget` are defined but unused until PR-004.
+- `getQueryBudget(depth: string)` accepts loose string -- will tighten when intent classification lands (PR-008).
+
+### Invariant
+The eval script contract is locked and must not change without explicit approval:
+- `bun run eval` -- backward-compatible (absolute thresholds, `--mode=full` default)
+- `bun run eval:pr` -- regression check against baseline
+- `bun run eval:full` -- explicit full benchmark
+- `bun run eval:baseline:update` -- refresh baseline after intentional changes
+- Baseline path: `fixtures/eval/baseline.json`
