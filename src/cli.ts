@@ -42,6 +42,7 @@ import * as redditEnrich from './lib/reddit-enrich.js'
 import * as render from './lib/render.js'
 import * as schema from './lib/schema.js'
 import * as score from './lib/score.js'
+import { computeTrendScores } from './lib/trend.js'
 import { ProgressDisplay } from './lib/ui.js'
 import * as xaiX from './lib/xai-x.js'
 
@@ -945,9 +946,22 @@ async function main() {
 		toDate,
 	)
 
-	const scoredReddit = score.scoreRedditItems(filteredReddit, args.days)
-	const scoredX = score.scoreXItems(filteredX, args.days)
-	const scoredYouTube = score.scoreYouTubeItems(filteredYouTube, args.days)
+	const trendScores = computeTrendScores([
+		...filteredReddit,
+		...filteredX,
+		...filteredYouTube,
+	])
+	const scoredReddit = score.scoreRedditItems(
+		filteredReddit,
+		args.days,
+		trendScores,
+	)
+	const scoredX = score.scoreXItems(filteredX, args.days, trendScores)
+	const scoredYouTube = score.scoreYouTubeItems(
+		filteredYouTube,
+		args.days,
+		trendScores,
+	)
 
 	const sortedReddit = score.sortItems(scoredReddit)
 	const sortedX = score.sortItems(scoredX)

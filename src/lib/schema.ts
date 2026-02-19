@@ -27,6 +27,7 @@ export interface SubScores {
 	relevance: number
 	recency: number
 	engagement: number
+	trend_score?: number
 }
 
 /** Normalized Reddit item. */

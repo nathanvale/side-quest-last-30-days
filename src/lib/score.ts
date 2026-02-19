@@ -12,6 +12,10 @@ import type { TrendScore } from './trend.js'
 
 type SortableItem = RedditItem | XItem | WebSearchItem | YouTubeItem
 
+interface ScoreOptions {
+	trendWeight?: number
+}
+
 // Score weights for Reddit/X (has engagement)
 const WEIGHT_RELEVANCE = 0.45
 const WEIGHT_RECENCY = 0.25
@@ -26,16 +30,8 @@ const WEBSEARCH_SOURCE_PENALTY = 15
 const WEBSEARCH_VERIFIED_BONUS = 10
 const WEBSEARCH_NO_DATE_PENALTY = 20
 
-// Trend weight (when trend data is available)
-const WEIGHT_TREND = 0.1
-// Adjusted weights when trend data is present (sum to 0.9)
-const TREND_WEIGHT_RELEVANCE = 0.405
-const TREND_WEIGHT_RECENCY = 0.225
-const TREND_WEIGHT_ENGAGEMENT = 0.27
-
-// Adjusted websearch weights when trend data is present (sum to 0.9)
-const TREND_WEBSEARCH_WEIGHT_RELEVANCE = 0.495
-const TREND_WEBSEARCH_WEIGHT_RECENCY = 0.405
+// Default trend contribution when trend data is available
+const DEFAULT_WEIGHT_TREND = 0.1
 
 // Default engagement score for unknown
 const DEFAULT_ENGAGEMENT = 35
@@ -98,14 +94,56 @@ function normalizeTo100(
 	})
 }
 
+/** Clamp configurable trend weight to 0..1, defaulting to 10%. */
+function resolveTrendWeight(options?: ScoreOptions): number {
+	const value = options?.trendWeight
+	if (value == null || !Number.isFinite(value)) return DEFAULT_WEIGHT_TREND
+	return Math.max(0, Math.min(1, value))
+}
+
+/**
+ * Compute base component weights after reserving trend weight.
+ * Base proportions remain 45/25/30 for relevance/recency/engagement.
+ */
+function weightedMix(trendWeight: number): {
+	relevance: number
+	recency: number
+	engagement: number
+} {
+	const baseWeight = 1 - trendWeight
+	return {
+		relevance: WEIGHT_RELEVANCE * baseWeight,
+		recency: WEIGHT_RECENCY * baseWeight,
+		engagement: WEIGHT_ENGAGEMENT * baseWeight,
+	}
+}
+
+/**
+ * Compute web component weights after reserving trend weight.
+ * Base proportions remain 55/45 for relevance/recency.
+ */
+function weightedWebMix(trendWeight: number): {
+	relevance: number
+	recency: number
+} {
+	const baseWeight = 1 - trendWeight
+	return {
+		relevance: WEBSEARCH_WEIGHT_RELEVANCE * baseWeight,
+		recency: WEBSEARCH_WEIGHT_RECENCY * baseWeight,
+	}
+}
+
 /** Compute scores for Reddit items. */
 export function scoreRedditItems(
 	items: RedditItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	options?: ScoreOptions,
 ): RedditItem[] {
 	if (items.length === 0) return items
 
+	const trendWeight = resolveTrendWeight(options)
+	const mix = weightedMix(trendWeight)
 	const engRaw = items.map((item) =>
 		computeRedditEngagementRaw(item.engagement),
 	)
@@ -122,18 +160,28 @@ export function scoreRedditItems(
 				? Math.floor(engNormalized[i]!)
 				: DEFAULT_ENGAGEMENT
 
-		item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
-
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
 		if (ts) {
+			const trendComponent = Math.floor(ts.trendScore * 100)
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: engScore,
+				trend_score: trendComponent,
+			}
+			item.momentum = ts.momentum
+			item.trend_score = trendComponent
 			overall =
-				TREND_WEIGHT_RELEVANCE * relScore +
-				TREND_WEIGHT_RECENCY * recScore +
-				TREND_WEIGHT_ENGAGEMENT * engScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				mix.relevance * relScore +
+				mix.recency * recScore +
+				mix.engagement * engScore +
+				trendWeight * ts.trendScore * 100
 		} else {
+			item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
+			item.momentum = undefined
+			item.trend_score = undefined
 			overall =
 				WEIGHT_RELEVANCE * relScore +
 				WEIGHT_RECENCY * recScore +
@@ -155,9 +203,12 @@ export function scoreXItems(
 	items: XItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	options?: ScoreOptions,
 ): XItem[] {
 	if (items.length === 0) return items
 
+	const trendWeight = resolveTrendWeight(options)
+	const mix = weightedMix(trendWeight)
 	const engRaw = items.map((item) => computeXEngagementRaw(item.engagement))
 	const engNormalized = normalizeTo100(engRaw)
 
@@ -172,18 +223,28 @@ export function scoreXItems(
 				? Math.floor(engNormalized[i]!)
 				: DEFAULT_ENGAGEMENT
 
-		item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
-
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
 		if (ts) {
+			const trendComponent = Math.floor(ts.trendScore * 100)
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: engScore,
+				trend_score: trendComponent,
+			}
+			item.momentum = ts.momentum
+			item.trend_score = trendComponent
 			overall =
-				TREND_WEIGHT_RELEVANCE * relScore +
-				TREND_WEIGHT_RECENCY * recScore +
-				TREND_WEIGHT_ENGAGEMENT * engScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				mix.relevance * relScore +
+				mix.recency * recScore +
+				mix.engagement * engScore +
+				trendWeight * ts.trendScore * 100
 		} else {
+			item.subs = { relevance: relScore, recency: recScore, engagement: engScore }
+			item.momentum = undefined
+			item.trend_score = undefined
 			overall =
 				WEIGHT_RELEVANCE * relScore +
 				WEIGHT_RECENCY * recScore +
@@ -205,26 +266,39 @@ export function scoreWebsearchItems(
 	items: WebSearchItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	options?: ScoreOptions,
 ): WebSearchItem[] {
 	if (items.length === 0) return items
 
+	const trendWeight = resolveTrendWeight(options)
+	const mix = weightedWebMix(trendWeight)
 	for (const item of items) {
 		const relScore = Number.isFinite(item.relevance)
 			? Math.floor(item.relevance * 100)
 			: 50
 		const recScore = recencyScore(item.date, maxDays)
 
-		item.subs = { relevance: relScore, recency: recScore, engagement: 0 }
-
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
 		if (ts) {
+			const trendComponent = Math.floor(ts.trendScore * 100)
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: 0,
+				trend_score: trendComponent,
+			}
+			item.momentum = ts.momentum
+			item.trend_score = trendComponent
 			overall =
-				TREND_WEBSEARCH_WEIGHT_RELEVANCE * relScore +
-				TREND_WEBSEARCH_WEIGHT_RECENCY * recScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				mix.relevance * relScore +
+				mix.recency * recScore +
+				trendWeight * ts.trendScore * 100
 		} else {
+			item.subs = { relevance: relScore, recency: recScore, engagement: 0 }
+			item.momentum = undefined
+			item.trend_score = undefined
 			overall =
 				WEBSEARCH_WEIGHT_RELEVANCE * relScore +
 				WEBSEARCH_WEIGHT_RECENCY * recScore
@@ -256,9 +330,12 @@ export function scoreYouTubeItems(
 	items: YouTubeItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
+	options?: ScoreOptions,
 ): YouTubeItem[] {
 	if (items.length === 0) return items
 
+	const trendWeight = resolveTrendWeight(options)
+	const mix = weightedMix(trendWeight)
 	const engRaw = items.map((item) => computeYouTubeEngagementRaw(item))
 	const engNormalized = normalizeTo100(engRaw)
 
@@ -273,22 +350,32 @@ export function scoreYouTubeItems(
 				? Math.floor(engNormalized[i]!)
 				: DEFAULT_ENGAGEMENT
 
-		item.subs = {
-			relevance: relScore,
-			recency: recScore,
-			engagement: engScore,
-		}
-
 		const ts = trendScores?.get(item.id)
 
 		let overall: number
 		if (ts) {
+			const trendComponent = Math.floor(ts.trendScore * 100)
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: engScore,
+				trend_score: trendComponent,
+			}
+			item.momentum = ts.momentum
+			item.trend_score = trendComponent
 			overall =
-				TREND_WEIGHT_RELEVANCE * relScore +
-				TREND_WEIGHT_RECENCY * recScore +
-				TREND_WEIGHT_ENGAGEMENT * engScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				mix.relevance * relScore +
+				mix.recency * recScore +
+				mix.engagement * engScore +
+				trendWeight * ts.trendScore * 100
 		} else {
+			item.subs = {
+				relevance: relScore,
+				recency: recScore,
+				engagement: engScore,
+			}
+			item.momentum = undefined
+			item.trend_score = undefined
 			overall =
 				WEIGHT_RELEVANCE * relScore +
 				WEIGHT_RECENCY * recScore +

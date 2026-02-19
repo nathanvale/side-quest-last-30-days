@@ -18,6 +18,7 @@ export interface TrendScore {
 }
 
 type SourceType = 'reddit' | 'x' | 'youtube' | 'web'
+const HIGH_ENGAGEMENT_THRESHOLD = 2.5
 
 /** Detect which source type an item belongs to. */
 function getSourceType(item: AnyItem): SourceType {
@@ -45,6 +46,53 @@ function tokenize(text: string): Set<string> {
 	return new Set(words.filter((w) => w.length > 4))
 }
 
+/** Safe log1p that handles null and negative values. */
+function log1pSafe(value: number | null | undefined): number {
+	if (value == null || value < 0) return 0
+	return Math.log1p(value)
+}
+
+/**
+ * Compute cross-source comparable engagement signal.
+ *
+ * Mirrors each source's native engagement shape so momentum can
+ * reason about "velocity proxy" without relying on the final
+ * post-scoring `item.score` value.
+ */
+function engagementSignal(item: AnyItem): number {
+	if ('subreddit' in item) {
+		const e = item.engagement
+		if (!e) return 0
+		const ratio = e.upvote_ratio ?? 0.5
+		return (
+			0.55 * log1pSafe(e.score) +
+			0.4 * log1pSafe(e.num_comments) +
+			0.05 * Math.max(0, ratio) * 10
+		)
+	}
+
+	if ('author_handle' in item) {
+		const e = item.engagement
+		if (!e) return 0
+		return (
+			0.55 * log1pSafe(e.likes) +
+			0.25 * log1pSafe(e.reposts) +
+			0.15 * log1pSafe(e.replies) +
+			0.05 * log1pSafe(e.quotes)
+		)
+	}
+
+	if ('channel' in item) {
+		return (
+			0.65 * log1pSafe(item.views) +
+			0.3 * log1pSafe(item.likes) +
+			0.05 * log1pSafe(item.comments)
+		)
+	}
+
+	return 0
+}
+
 /**
  * Compute momentum score for a single item.
  *
@@ -61,11 +109,11 @@ export function momentumScore(item: AnyItem): number {
 	const hoursAgo = (now - itemDate) / (1000 * 60 * 60)
 	const within48h = hoursAgo <= 48
 	const within7d = hoursAgo <= 7 * 24
-	const highScore = item.score >= 50
+	const highEngagement = engagementSignal(item) >= HIGH_ENGAGEMENT_THRESHOLD
 
-	if (within48h && highScore) return 1.0
+	if (within48h && highEngagement) return 1.0
 	if (within48h) return 0.7
-	if (within7d && highScore) return 0.8
+	if (within7d && highEngagement) return 0.8
 	if (within7d) return 0.5
 	return 0.3
 }

@@ -37,7 +37,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/1',
 			subreddit: 'test',
 			date: hoursAgo(12),
-			score: 80,
+			engagement: { score: 120, num_comments: 30, upvote_ratio: 0.9 },
 		})
 		expect(momentumScore(item)).toBe(1.0)
 	})
@@ -49,7 +49,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/2',
 			subreddit: 'test',
 			date: hoursAgo(24),
-			score: 30,
+			engagement: { score: 12, num_comments: 1, upvote_ratio: 0.6 },
 		})
 		expect(momentumScore(item)).toBe(0.7)
 	})
@@ -61,7 +61,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/3',
 			subreddit: 'test',
 			date: daysAgo(3),
-			score: 75,
+			engagement: { score: 95, num_comments: 24, upvote_ratio: 0.88 },
 		})
 		expect(momentumScore(item)).toBe(0.8)
 	})
@@ -73,7 +73,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/4',
 			subreddit: 'test',
 			date: daysAgo(3),
-			score: 20,
+			engagement: { score: 8, num_comments: 0, upvote_ratio: 0.5 },
 		})
 		expect(momentumScore(item)).toBe(0.5)
 	})
@@ -85,7 +85,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/5',
 			subreddit: 'test',
 			date: daysAgo(14),
-			score: 90,
+			engagement: { score: 300, num_comments: 100, upvote_ratio: 0.95 },
 		})
 		expect(momentumScore(item)).toBe(0.3)
 	})
@@ -97,7 +97,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/6',
 			subreddit: 'test',
 			date: null,
-			score: 50,
+			engagement: { score: 100, num_comments: 60, upvote_ratio: 0.9 },
 		})
 		expect(momentumScore(item)).toBe(0.2)
 	})
@@ -109,7 +109,7 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/7',
 			subreddit: 'test',
 			date: hoursAgo(6),
-			score: 80,
+			engagement: { score: 150, num_comments: 40, upvote_ratio: 0.92 },
 		})
 		const older = defaultRedditItem({
 			id: 'r8',
@@ -117,9 +117,31 @@ describe('momentumScore', () => {
 			url: 'https://reddit.com/r/test/8',
 			subreddit: 'test',
 			date: daysAgo(10),
-			score: 20,
+			engagement: { score: 6, num_comments: 0, upvote_ratio: 0.4 },
 		})
 		expect(momentumScore(recent)).toBeGreaterThan(momentumScore(older))
+	})
+
+	test('higher engagement increases momentum within the same recency bucket', () => {
+		const highEngagement = defaultRedditItem({
+			id: 'r9',
+			title: 'High engagement',
+			url: 'https://reddit.com/r/test/9',
+			subreddit: 'test',
+			date: hoursAgo(24),
+			engagement: { score: 120, num_comments: 30, upvote_ratio: 0.9 },
+		})
+		const lowEngagement = defaultRedditItem({
+			id: 'r10',
+			title: 'Low engagement',
+			url: 'https://reddit.com/r/test/10',
+			subreddit: 'test',
+			date: hoursAgo(24),
+			engagement: { score: 4, num_comments: 0, upvote_ratio: 0.5 },
+		})
+		expect(momentumScore(highEngagement)).toBeGreaterThan(
+			momentumScore(lowEngagement),
+		)
 	})
 })
 
@@ -452,5 +474,67 @@ describe('backward compatibility', () => {
 
 		// Scores should differ when trend data is provided
 		expect(withTrend[0]!.score).not.toBe(withoutTrend[0]!.score)
+	})
+
+	test('scoring WITH trendScores sets trend metadata fields', () => {
+		const items = [
+			defaultRedditItem({
+				id: 'r1',
+				title: 'Trend metadata',
+				url: 'https://reddit.com/r/test/1',
+				subreddit: 'test',
+				date: daysAgo(1),
+				engagement: {
+					score: 80,
+					num_comments: 20,
+					upvote_ratio: 0.85,
+				},
+				relevance: 0.8,
+				date_confidence: 'high',
+			}),
+		]
+
+		const trendMap = new Map<string, TrendScore>()
+		trendMap.set('r1', {
+			momentum: 0.9,
+			diversityBonus: 0.5,
+			trendScore: 0.78,
+		})
+
+		const scored = scoreRedditItems(items, 30, trendMap)
+		expect(scored[0]!.momentum).toBe(0.9)
+		expect(scored[0]!.trend_score).toBe(78)
+		expect(scored[0]!.subs.trend_score).toBe(78)
+	})
+
+	test('trendWeight option changes impact of trend contribution', () => {
+		const baseItem = defaultRedditItem({
+			id: 'r1',
+			title: 'Weight override',
+			url: 'https://reddit.com/r/test/1',
+			subreddit: 'test',
+			date: daysAgo(2),
+			engagement: {
+				score: 20,
+				num_comments: 2,
+				upvote_ratio: 0.6,
+			},
+			relevance: 0.6,
+			date_confidence: 'high',
+		})
+
+		const trendMap = new Map<string, TrendScore>()
+		trendMap.set('r1', {
+			momentum: 1.0,
+			diversityBonus: 1.0,
+			trendScore: 1.0,
+		})
+
+		const defaultWeighted = scoreRedditItems([{ ...baseItem }], 30, trendMap)[0]!
+		const higherTrendWeighted = scoreRedditItems([{ ...baseItem }], 30, trendMap, {
+			trendWeight: 0.2,
+		})[0]!
+
+		expect(higherTrendWeighted.score).toBeGreaterThan(defaultWeighted.score)
 	})
 })
