@@ -115,11 +115,17 @@ export function getSourceCacheKey(
 
 /**
  * Generate cache key for a phase 2 supplemental search result.
- * Includes entity and entity type dimensions to avoid collisions
- * between different supplemental queries.
+ * Includes the full query dimensions plus entity metadata to avoid
+ * semantic collisions across different supplemental search contexts.
  */
 export function getPhase2CacheKey(
 	topic: string,
+	fromDate: string,
+	toDate: string,
+	days: number,
+	depth: string,
+	model: string | null,
+	promptVersion: string,
 	entity: string,
 	entityType: string,
 	source: string,
@@ -128,6 +134,12 @@ export function getPhase2CacheKey(
 		`schema=${SEARCH_CACHE_SCHEMA_VERSION}`,
 		`phase=2`,
 		`topic=${normalizeTopic(topic)}`,
+		`from=${fromDate}`,
+		`to=${toDate}`,
+		`days=${days}`,
+		`depth=${depth}`,
+		`model=${model ?? 'unknown'}`,
+		`prompt=${promptVersion}`,
 		`entity=${entity.toLowerCase().trim()}`,
 		`entityType=${entityType}`,
 		`source=${source}`,
