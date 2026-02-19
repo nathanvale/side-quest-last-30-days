@@ -1,11 +1,17 @@
 name: Dismiss stale bot reviews
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to process"
+        required: true
+        type: number
   pull_request:
     types: [synchronize]
 permissions:
   pull-requests: write
 concurrency:
-  group: dismiss-reviews-${{ github.head_ref }}
+  group: dismiss-reviews-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 jobs:
   dismiss:
@@ -16,12 +22,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: |
           set -euo pipefail
 
           BOTS="coderabbitai[bot] copilot[bot] github-actions[bot]"
+
+          if [ -z "${PR_NUMBER}" ]; then
+            echo "Error: PR_NUMBER is empty"
+            exit 1
+          fi
+
+          # workflow_dispatch doesn't provide pull_request payload fields
+          if [ -z "${HEAD_SHA}" ]; then
+            HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          fi
 
           # Get the timestamp of the latest commit on the PR
           COMMIT_DATE=$(gh api "repos/${REPO}/git/commits/${HEAD_SHA}" \

@@ -64,6 +64,7 @@
 		"lint:scripts": "shellcheck .github/scripts/*.sh",
 		"lint:workflows": "actionlint -color -verbose",
 		"pack:dry": "mkdir -p .pack && bun pm pack --destination .pack --ignore-scripts && ls -lah .pack && tar -tf .pack/*.tgz | sort | sed 's/^/ - /'",
+		"pr:blockers": "bash scripts/pr-blockers.sh",
 		"pre:enter:beta": "changeset pre enter beta",
 		"pre:enter:next": "changeset pre enter next",
 		"pre:enter:rc": "changeset pre enter rc",
