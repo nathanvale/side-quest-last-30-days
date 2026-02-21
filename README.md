@@ -285,6 +285,7 @@ bun run validate     # Full pipeline: lint + typecheck + build + test
 bun test             # Run all tests
 bun test --watch     # Watch mode
 bun test --coverage  # With coverage
+bun run update:baseline  # Regenerate algorithm baseline fixtures
 
 # Package hygiene
 bun run hygiene      # publint + attw checks
@@ -309,10 +310,32 @@ Tests use the Bun native test runner. All test files live in `tests/`.
 | `tests/eval-metrics.test.ts` | Evaluation metric functions |
 | `tests/eval-oracle.test.ts` | Test oracle |
 | `tests/telemetry-contract.test.ts` | Telemetry schema validation |
+| `tests/algorithm-baseline.test.ts` | Golden snapshot baseline for scoring + ranking |
+| `tests/algorithm-contracts.test.ts` | Scoring, normalization, dedupe contract tests |
 
 The `--mock` flag enables fixture-based testing without API keys. Fixtures live in `fixtures/`.
 
 **Coverage gate:** 80% minimum on lines, branches, and functions (enforced in CI).
+
+### Algorithm Baselines
+
+Golden snapshots lock scoring + ranking behavior for deterministic fixtures in
+`fixtures/algorithm-baseline/`. If algorithm behavior changes intentionally,
+regenerate the baseline and review the diff:
+
+```bash
+bun run update:baseline
+```
+
+### Local Smoke Tests (Current vs Legacy)
+
+Use live APIs to sanity-check the algorithm “in the wild”. Run locally only.
+
+1. Choose 3–5 active topics (example: Bun 1.3 features, React Server Components security fixes, Node.js 24/25 release changes).
+2. Run current repo for each topic (same date window): `last-30-days "Bun 1.3 features" --emit=json --include-web`.
+3. Run legacy repo for the same topics and flags.
+4. Save outputs to `reports/smoke/current/` and `reports/smoke/legacy/`.
+5. Compare top‑10 overlap and any obvious ranking regressions.
 
 ### Code Style
 

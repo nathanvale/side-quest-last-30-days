@@ -1,0 +1,66 @@
+{
+	"from_date": "2026-01-22",
+	"to_date": "2026-02-21",
+	"reddit": [
+		{
+			"id": "r-sample-1",
+			"title": "Sample Reddit Post",
+			"url": "https://reddit.com/r/sample/comments/abc123",
+			"subreddit": "sample",
+			"date": "2026-02-20",
+			"engagement": { "score": 120, "num_comments": 25, "upvote_ratio": 0.9 },
+			"top_comments": [
+				{
+					"score": 10,
+					"date": "2026-02-20",
+					"author": "commenter",
+					"excerpt": "Nice post",
+					"url": "https://reddit.com/r/sample/comments/abc123/comment/def"
+				}
+			],
+			"comment_insights": ["insight"],
+			"relevance": 0.8,
+			"why_relevant": "matches topic"
+		}
+	],
+	"x": [
+		{
+			"id": "x-sample-1",
+			"text": "Sample X post about testing",
+			"url": "https://x.com/sample/status/1",
+			"author_handle": "sample",
+			"date": "2026-02-19",
+			"engagement": { "likes": 50, "reposts": 10, "replies": 5, "quotes": 1 },
+			"relevance": 0.7,
+			"why_relevant": "matches topic"
+		}
+	],
+	"youtube": [
+		{
+			"id": "y-sample-1",
+			"title": "Sample YouTube Video",
+			"url": "https://www.youtube.com/watch?v=sample1",
+			"channel": "Sample Channel",
+			"date": "2026-02-18",
+			"views": 12345,
+			"likes": 456,
+			"comments": 78,
+			"transcript_snippet": "Snippet",
+			"relevance": 0.6,
+			"why_relevant": "matches topic"
+		}
+	],
+	"web": [
+		{
+			"id": "w-sample-1",
+			"title": "Sample Web Article",
+			"url": "https://example.com/sample",
+			"source_domain": "example.com",
+			"snippet": "Sample snippet",
+			"date": "2026-02-17",
+			"date_confidence": "high",
+			"relevance": 0.5,
+			"why_relevant": "matches topic"
+		}
+	]
+}

@@ -260,6 +260,16 @@ The architecture naturally extends in a few directions:
 - **Better engagement verification**: X posts currently use LLM-reported metrics (no free public JSON endpoint like Reddit has). If X's API becomes accessible, enrichment would close that accuracy gap.
 - **Smarter deduplication**: The Jaccard similarity on character trigrams works well for near-identical posts but misses semantic duplicates (same discussion, different words). An embedding-based approach could catch those.
 
+### Local Smoke Tests (Current vs Legacy)
+
+When we need confidence “in the wild”, we run local smoke tests against live APIs (current repo vs legacy repo) using the same topics and date window.
+
+1. Choose 3–5 active topics (example: Bun 1.3 features, React Server Components security fixes, Node.js 24/25 release changes).
+2. Run current repo for each topic (same date window): `last-30-days "Bun 1.3 features" --emit=json --include-web`.
+3. Run legacy repo for the same topics and flags.
+4. Save outputs to `reports/smoke/current/` and `reports/smoke/legacy/`.
+5. Compare top‑10 overlap and any obvious ranking regressions.
+
 ---
 
 ## Final Thoughts
