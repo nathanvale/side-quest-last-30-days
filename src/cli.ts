@@ -26,36 +26,89 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-	isYtDlpAvailable,
-	parseYouTubeResults,
-	searchYouTube,
+import type {
+	IntentQueryType as QueryType,
+	RedditItem,
+	XItem,
+	YouTubeItem,
 } from './index.js'
-import { generateBriefing, renderBriefingMarkdown } from './lib/briefing.js'
-import * as cache from './lib/cache.js'
-import * as config from './lib/config.js'
-import { getDateRange } from './lib/dates.js'
-import * as dedupe from './lib/dedupe.js'
-import { RateLimitError } from './lib/http.js'
-import type { QueryType } from './lib/intent.js'
-import { classifyIntent, getIntentPolicy } from './lib/intent.js'
-import * as models from './lib/models.js'
-import * as normalize from './lib/normalize.js'
-import * as openaiReddit from './lib/openai-reddit.js'
-import * as redditEnrich from './lib/reddit-enrich.js'
-import * as render from './lib/render.js'
-import type { RedditItem, XItem, YouTubeItem } from './lib/schema.js'
-import * as schema from './lib/schema.js'
-import * as score from './lib/score.js'
-import { computeTrendScores } from './lib/trend.js'
-import { ProgressDisplay } from './lib/ui.js'
 import {
+	// cache
+	acquireCacheLock,
+	// watchlist
 	addTopic,
+	// intent
+	classifyIntent,
+	// trend
+	computeTrendScores,
+	// schema
+	createReport,
+	// dedupe
+	dedupeReddit,
+	dedupeX,
+	dedupeYouTube,
+	// reddit-enrich
+	enrichRedditItem,
+	// openai-reddit
+	extractCoreSubject,
+	// normalize
+	filterByDateRange,
+	// briefing
+	generateBriefing,
+	// config
+	getAvailableSources,
+	getConfig,
+	// render
+	getContextPath,
+	// dates
+	getDateRange,
+	getEnrichmentCacheKey,
+	getEnrichmentTTL,
 	getHistory,
+	getIntentPolicy,
+	getMissingKeys,
+	// models
+	getModels,
+	getSearchTTL,
+	getSourceCacheKey,
+	// youtube
+	isYtDlpAvailable,
 	listTopics,
+	loadCacheWithAge,
+	loadStaleCacheWithAge,
+	normalizeRedditItems,
+	normalizeXItems,
+	normalizeYouTubeItems,
+	// ui
+	ProgressDisplay,
+	parseRedditResponse,
+	// websearch (none currently used directly)
+	// xai-x
+	parseXResponse,
+	parseYouTubeResults,
+	// http
+	RateLimitError,
+	REDDIT_PROMPT_VERSION,
+	releaseCacheLock,
 	removeTopic,
-} from './lib/watchlist.js'
-import * as xaiX from './lib/xai-x.js'
+	renderBriefingMarkdown,
+	renderCompact,
+	renderContextSnippet,
+	renderFullReport,
+	reportToDict,
+	saveCache,
+	// score
+	scoreRedditItems,
+	scoreXItems,
+	scoreYouTubeItems,
+	searchReddit,
+	searchX,
+	searchYouTube,
+	sortItems,
+	validateSources,
+	writeOutputs,
+	X_PROMPT_VERSION,
+} from './index.js'
 
 /** Load a fixture file. */
 function loadFixture(name: string): Record<string, unknown> {
@@ -366,7 +419,7 @@ async function searchRedditTask(
 	mock: boolean,
 	cacheOpts: { skipRead: boolean; skipWrite: boolean },
 ): Promise<SearchTaskResult> {
-	const cacheKey = cache.getSourceCacheKey(
+	const cacheKey = getSourceCacheKey(
 		topic,
 		fromDate,
 		toDate,
@@ -374,15 +427,12 @@ async function searchRedditTask(
 		'reddit',
 		depth,
 		selectedModels.openai ?? null,
-		openaiReddit.REDDIT_PROMPT_VERSION,
+		REDDIT_PROMPT_VERSION,
 	)
 
 	// Try cache first (unless refreshing or mock)
 	if (!mock && !cacheOpts.skipRead) {
-		const [cached, ageHours] = cache.loadCacheWithAge(
-			cacheKey,
-			cache.getSearchTTL(),
-		)
+		const [cached, ageHours] = loadCacheWithAge(cacheKey, getSearchTTL())
 		const payload = parseCachedSearchPayload(cached)
 		if (payload) {
 			return {
@@ -399,11 +449,11 @@ async function searchRedditTask(
 
 	let lockAcquired = false
 	if (!mock && !cacheOpts.skipRead) {
-		lockAcquired = await cache.acquireCacheLock(cacheKey)
+		lockAcquired = await acquireCacheLock(cacheKey)
 		if (!lockAcquired) {
-			const [cachedAfterWait, ageHours] = cache.loadCacheWithAge(
+			const [cachedAfterWait, ageHours] = loadCacheWithAge(
 				cacheKey,
-				cache.getSearchTTL(),
+				getSearchTTL(),
 			)
 			const payload = parseCachedSearchPayload(cachedAfterWait)
 			if (payload) {
@@ -428,7 +478,7 @@ async function searchRedditTask(
 		if (mock) {
 			raw = loadFixture('openai_sample.json')
 		} else {
-			raw = await openaiReddit.searchReddit(
+			raw = await searchReddit(
 				cfg.OPENAI_API_KEY!,
 				selectedModels.openai!,
 				topic,
@@ -448,7 +498,7 @@ async function searchRedditTask(
 			// Stale cache fallback on transient rate-limit only.
 			// Keep error null when stale cache is served so results still render.
 			if (e.retryable && !cacheOpts.skipRead) {
-				const [stale, staleAge] = cache.loadStaleCacheWithAge(cacheKey)
+				const [stale, staleAge] = loadStaleCacheWithAge(cacheKey)
 				const payload = parseCachedSearchPayload(stale)
 				if (payload) {
 					return {
@@ -466,18 +516,18 @@ async function searchRedditTask(
 			error = `API error: ${e}`
 		}
 	} finally {
-		if (lockAcquired) cache.releaseCacheLock(cacheKey)
+		if (lockAcquired) releaseCacheLock(cacheKey)
 	}
 
-	const items = openaiReddit.parseRedditResponse(raw ?? {})
+	const items = parseRedditResponse(raw ?? {})
 
 	// Quick retry with simpler query if few results
 	// Skip if the first attempt was rate-limited (retry amplification guard)
 	if (items.length < 5 && !mock && !error && !rateLimited) {
-		const core = openaiReddit.extractCoreSubject(topic)
+		const core = extractCoreSubject(topic)
 		if (core.toLowerCase() !== topic.toLowerCase()) {
 			try {
-				const retryRaw = await openaiReddit.searchReddit(
+				const retryRaw = await searchReddit(
 					cfg.OPENAI_API_KEY!,
 					selectedModels.openai!,
 					core,
@@ -485,7 +535,7 @@ async function searchRedditTask(
 					toDate,
 					depth,
 				)
-				const retryItems = openaiReddit.parseRedditResponse(retryRaw)
+				const retryItems = parseRedditResponse(retryRaw)
 				const existingUrls = new Set(items.map((i) => i.url))
 				for (const item of retryItems) {
 					if (!existingUrls.has(item.url)) items.push(item)
@@ -498,7 +548,7 @@ async function searchRedditTask(
 
 	// Write through to cache on success (unless disabled)
 	if (!mock && !cacheOpts.skipWrite && !error && items.length > 0) {
-		cache.saveCache(cacheKey, { items, raw })
+		saveCache(cacheKey, { items, raw })
 	}
 
 	return {
@@ -523,7 +573,7 @@ async function searchXTask(
 	mock: boolean,
 	cacheOpts: { skipRead: boolean; skipWrite: boolean },
 ): Promise<SearchTaskResult> {
-	const cacheKey = cache.getSourceCacheKey(
+	const cacheKey = getSourceCacheKey(
 		topic,
 		fromDate,
 		toDate,
@@ -531,15 +581,12 @@ async function searchXTask(
 		'x',
 		depth,
 		selectedModels.xai ?? null,
-		xaiX.X_PROMPT_VERSION,
+		X_PROMPT_VERSION,
 	)
 
 	// Try cache first (unless refreshing or mock)
 	if (!mock && !cacheOpts.skipRead) {
-		const [cached, ageHours] = cache.loadCacheWithAge(
-			cacheKey,
-			cache.getSearchTTL(),
-		)
+		const [cached, ageHours] = loadCacheWithAge(cacheKey, getSearchTTL())
 		const payload = parseCachedSearchPayload(cached)
 		if (payload) {
 			return {
@@ -556,11 +603,11 @@ async function searchXTask(
 
 	let lockAcquired = false
 	if (!mock && !cacheOpts.skipRead) {
-		lockAcquired = await cache.acquireCacheLock(cacheKey)
+		lockAcquired = await acquireCacheLock(cacheKey)
 		if (!lockAcquired) {
-			const [cachedAfterWait, ageHours] = cache.loadCacheWithAge(
+			const [cachedAfterWait, ageHours] = loadCacheWithAge(
 				cacheKey,
-				cache.getSearchTTL(),
+				getSearchTTL(),
 			)
 			const payload = parseCachedSearchPayload(cachedAfterWait)
 			if (payload) {
@@ -585,7 +632,7 @@ async function searchXTask(
 		if (mock) {
 			raw = loadFixture('xai_sample.json')
 		} else {
-			raw = await xaiX.searchX(
+			raw = await searchX(
 				cfg.XAI_API_KEY!,
 				selectedModels.xai!,
 				topic,
@@ -605,7 +652,7 @@ async function searchXTask(
 			// Stale cache fallback on transient rate-limit only.
 			// Keep error null when stale cache is served so results still render.
 			if (e.retryable && !cacheOpts.skipRead) {
-				const [stale, staleAge] = cache.loadStaleCacheWithAge(cacheKey)
+				const [stale, staleAge] = loadStaleCacheWithAge(cacheKey)
 				const payload = parseCachedSearchPayload(stale)
 				if (payload) {
 					return {
@@ -623,14 +670,14 @@ async function searchXTask(
 			error = `API error: ${e}`
 		}
 	} finally {
-		if (lockAcquired) cache.releaseCacheLock(cacheKey)
+		if (lockAcquired) releaseCacheLock(cacheKey)
 	}
 
-	const items = xaiX.parseXResponse(raw ?? {})
+	const items = parseXResponse(raw ?? {})
 
 	// Write through to cache on success (unless disabled)
 	if (!mock && !cacheOpts.skipWrite && !error && items.length > 0) {
-		cache.saveCache(cacheKey, { items, raw })
+		saveCache(cacheKey, { items, raw })
 	}
 
 	return {
@@ -980,14 +1027,14 @@ async function main() {
 	}
 
 	// Load config
-	const cfg = config.getConfig()
-	const available = config.getAvailableSources(cfg)
+	const cfg = getConfig()
+	const available = getAvailableSources(cfg)
 
 	// Determine sources
 	let sources: string
 	if (args.mock) {
 		// In mock mode, simulate having both keys available
-		const [effectiveSources, error] = config.validateSources(
+		const [effectiveSources, error] = validateSources(
 			args.sources,
 			'both',
 			args.includeWeb,
@@ -998,7 +1045,7 @@ async function main() {
 			process.exit(1)
 		}
 	} else {
-		const [effectiveSources, error] = config.validateSources(
+		const [effectiveSources, error] = validateSources(
 			args.sources,
 			available,
 			args.includeWeb,
@@ -1016,7 +1063,7 @@ async function main() {
 
 	// Get date range
 	const [fromDate, toDate] = getDateRange(args.days)
-	const missingKeys = config.getMissingKeys(cfg)
+	const missingKeys = getMissingKeys(cfg)
 
 	// Initialize progress
 	const progress = new ProgressDisplay(args.topic, true)
@@ -1036,13 +1083,13 @@ async function main() {
 				string,
 				unknown
 			>[]) ?? []
-		selectedModels = await models.getModels(
+		selectedModels = await getModels(
 			{ OPENAI_API_KEY: 'mock', XAI_API_KEY: 'mock', ...cfg },
 			mockOpenai,
 			mockXai,
 		)
 	} else {
-		selectedModels = await models.getModels(cfg)
+		selectedModels = await getModels(cfg)
 	}
 
 	// Determine mode string
@@ -1190,13 +1237,10 @@ async function main() {
 			if (i > 0) progress.updateRedditEnrich(i + 1, redditItems.length)
 			const item = redditItems[i]!
 			const itemUrl = String(item.url ?? '')
-			const enrichKey = itemUrl ? cache.getEnrichmentCacheKey(itemUrl) : ''
+			const enrichKey = itemUrl ? getEnrichmentCacheKey(itemUrl) : ''
 
 			if (!args.mock && enrichKey && !skipCacheRead) {
-				const [cachedEnriched] = cache.loadCacheWithAge(
-					enrichKey,
-					cache.getEnrichmentTTL(),
-				)
+				const [cachedEnriched] = loadCacheWithAge(enrichKey, getEnrichmentTTL())
 				const cachedItem =
 					cachedEnriched &&
 					typeof cachedEnriched.item === 'object' &&
@@ -1213,14 +1257,11 @@ async function main() {
 			try {
 				if (args.mock) {
 					const mockThread = loadFixture('reddit_thread_sample.json')
-					redditItems[i] = await redditEnrich.enrichRedditItem(
-						redditItems[i]!,
-						mockThread,
-					)
+					redditItems[i] = await enrichRedditItem(redditItems[i]!, mockThread)
 				} else {
-					redditItems[i] = await redditEnrich.enrichRedditItem(redditItems[i]!)
+					redditItems[i] = await enrichRedditItem(redditItems[i]!)
 					if (enrichKey && !skipCacheWrite) {
-						cache.saveCache(enrichKey, {
+						saveCache(enrichKey, {
 							item: redditItems[i]!,
 							cached_at: new Date().toISOString(),
 						})
@@ -1275,29 +1316,17 @@ async function main() {
 	// Processing phase
 	progress.startProcessing()
 
-	const normalizedReddit = normalize.normalizeRedditItems(
-		redditItems,
-		fromDate,
-		toDate,
-	)
-	const normalizedX = normalize.normalizeXItems(xItems, fromDate, toDate)
-	const normalizedYouTube = normalize.normalizeYouTubeItems(
+	const normalizedReddit = normalizeRedditItems(redditItems, fromDate, toDate)
+	const normalizedX = normalizeXItems(xItems, fromDate, toDate)
+	const normalizedYouTube = normalizeYouTubeItems(
 		youtubeRawItems,
 		fromDate,
 		toDate,
 	)
 
-	const filteredReddit = normalize.filterByDateRange(
-		normalizedReddit,
-		fromDate,
-		toDate,
-	)
-	const filteredX = normalize.filterByDateRange(normalizedX, fromDate, toDate)
-	const filteredYouTube = normalize.filterByDateRange(
-		normalizedYouTube,
-		fromDate,
-		toDate,
-	)
+	const filteredReddit = filterByDateRange(normalizedReddit, fromDate, toDate)
+	const filteredX = filterByDateRange(normalizedX, fromDate, toDate)
+	const filteredYouTube = filterByDateRange(normalizedYouTube, fromDate, toDate)
 
 	const trendScores = computeTrendScores([
 		...filteredReddit,
@@ -1305,37 +1334,32 @@ async function main() {
 		...filteredYouTube,
 	])
 	const scoreOpts = { intentWeights: intentPolicy.weights }
-	const scoredReddit = score.scoreRedditItems(
+	const scoredReddit = scoreRedditItems(
 		filteredReddit,
 		args.days,
 		trendScores,
 		scoreOpts,
 	)
-	const scoredX = score.scoreXItems(
-		filteredX,
-		args.days,
-		trendScores,
-		scoreOpts,
-	)
-	const scoredYouTube = score.scoreYouTubeItems(
+	const scoredX = scoreXItems(filteredX, args.days, trendScores, scoreOpts)
+	const scoredYouTube = scoreYouTubeItems(
 		filteredYouTube,
 		args.days,
 		trendScores,
 		scoreOpts,
 	)
 
-	const sortedReddit = score.sortItems(scoredReddit) as RedditItem[]
-	const sortedX = score.sortItems(scoredX) as XItem[]
-	const sortedYouTube = score.sortItems(scoredYouTube) as YouTubeItem[]
+	const sortedReddit = sortItems(scoredReddit) as RedditItem[]
+	const sortedX = sortItems(scoredX) as XItem[]
+	const sortedYouTube = sortItems(scoredYouTube) as YouTubeItem[]
 
-	const dedupedReddit = dedupe.dedupeReddit(sortedReddit)
-	const dedupedX = dedupe.dedupeX(sortedX)
-	const dedupedYouTube = dedupe.dedupeYouTube(sortedYouTube)
+	const dedupedReddit = dedupeReddit(sortedReddit)
+	const dedupedX = dedupeX(sortedX)
+	const dedupedYouTube = dedupeYouTube(sortedYouTube)
 
 	progress.endProcessing()
 
 	// Create report
-	const report = schema.createReport(
+	const report = createReport(
 		args.topic,
 		fromDate,
 		toDate,
@@ -1352,11 +1376,11 @@ async function main() {
 	report.youtube_error = youtubeError
 	report.from_cache = anyFromCache
 	report.cache_age_hours = maxCacheAge
-	report.context_snippet_md = render.renderContextSnippet(report)
+	report.context_snippet_md = renderContextSnippet(report)
 
 	// Write outputs
 	try {
-		render.writeOutputs(
+		writeOutputs(
 			report,
 			rawOpenai,
 			rawXai,
@@ -1378,9 +1402,9 @@ async function main() {
 
 	// Output result
 	if (args.emit === 'compact') {
-		console.log(render.renderCompact(report, 15, missingKeys))
+		console.log(renderCompact(report, 15, missingKeys))
 	} else if (args.emit === 'json') {
-		const dict = schema.reportToDict(report) as Record<string, unknown>
+		const dict = reportToDict(report) as Record<string, unknown>
 		if (webNeeded) {
 			dict.web_search_instructions = {
 				topic: args.topic,
@@ -1392,11 +1416,11 @@ async function main() {
 		}
 		console.log(JSON.stringify(dict, null, 2))
 	} else if (args.emit === 'md') {
-		console.log(render.renderFullReport(report))
+		console.log(renderFullReport(report))
 	} else if (args.emit === 'context') {
 		console.log(report.context_snippet_md)
 	} else if (args.emit === 'path') {
-		console.log(render.getContextPath(args.outdir || undefined))
+		console.log(getContextPath(args.outdir || undefined))
 	}
 
 	// Web mode handoff: print structured instructions for Claude's WebSearch tool.

@@ -28,7 +28,12 @@ export {
 	saveCache,
 } from './lib/cache.js'
 // Config
-export { getAvailableSources, getConfig, getMissingKeys } from './lib/config.js'
+export {
+	getAvailableSources,
+	getConfig,
+	getMissingKeys,
+	validateSources,
+} from './lib/config.js'
 // Date utilities
 export {
 	daysAgo,
@@ -101,7 +106,7 @@ export type {
 } from './lib/intent.js'
 export { classifyIntent, getIntentPolicy } from './lib/intent.js'
 // Models
-export { invalidateCachedModel } from './lib/models.js'
+export { getModels, invalidateCachedModel } from './lib/models.js'
 // Normalization
 export {
 	filterByDateRange,
@@ -111,10 +116,15 @@ export {
 } from './lib/normalize.js'
 // OpenAI Reddit
 export {
+	extractCoreSubject,
 	isModelAccessError,
 	parseRedditResponse,
+	REDDIT_PROMPT_VERSION,
+	searchReddit,
 	supportsWebSearchFilters,
 } from './lib/openai-reddit.js'
+// Reddit enrichment
+export { enrichRedditItem } from './lib/reddit-enrich.js'
 // Rendering
 export {
 	getContextPath,
@@ -158,6 +168,7 @@ export type {
 export {
 	createReport,
 	defaultYouTubeItem,
+	reportToDict,
 } from './lib/schema.js'
 // Scoring
 export {
@@ -205,6 +216,8 @@ export {
 	sourceDiversityBonus,
 	trendScore,
 } from './lib/trend.js'
+// UI
+export { ProgressDisplay } from './lib/ui.js'
 // Watchlist
 export type {
 	RunHistoryEntry,
@@ -229,6 +242,6 @@ export {
 	parseWebsearchResults,
 } from './lib/websearch.js'
 // xAI X
-export { parseXResponse } from './lib/xai-x.js'
+export { parseXResponse, searchX, X_PROMPT_VERSION } from './lib/xai-x.js'
 // YouTube
 export { parseYouTubeResults, youtubeEngagementScore } from './lib/youtube.js'
