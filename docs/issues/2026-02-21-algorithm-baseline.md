@@ -6,6 +6,9 @@ Lock deterministic algorithm behavior with golden snapshots and contract tests s
 **Context**
 We now have deterministic fixtures and baseline tests. This issue formalizes sign-off and usage rules.
 
+**Current Status**
+Baseline fixtures exist in `fixtures/algorithm-baseline/v1.json`. Snapshot and contract tests are in `tests/algorithm-baseline.test.ts` and `tests/algorithm-contracts.test.ts`. CI guard is wired and `bun run update:baseline` is documented.
+
 ## Tasks
 - Confirm baseline fixtures represent current intent (`fixtures/algorithm-baseline/v1.json`).
 - Confirm baseline tolerances for internal correctness (strict) are correct.

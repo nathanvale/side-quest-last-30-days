@@ -3,6 +3,9 @@
 **Goal**
 Finalize baseline lock‑in, retire legacy compare, and document the local smoke test runbook.
 
+**Current Status**
+Smoke test runbook is present in README and EXPLAIN. Legacy compare is still present and should be removed once parity is accepted.
+
 ## Tasks
 - Remove legacy compare harness after parity is accepted.
 - Confirm baseline guard + tests run in CI.
