@@ -138,7 +138,13 @@ function runTopic(
 				const files = readdirSync(outdir).filter((f) =>
 					/^report.*\.json$/i.test(f),
 				)
+				files.sort()
 				if (files.length > 0) {
+					if (files.length > 1) {
+						console.error(
+							`  Warning: multiple report files found, using ${files[0]}`,
+						)
+					}
 					const jsonPath = join(outdir, files[0]!)
 					report = JSON.parse(readFileSync(jsonPath, 'utf-8')) as ReportData
 				}

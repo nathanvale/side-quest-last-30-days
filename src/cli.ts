@@ -796,6 +796,12 @@ function handleBriefingCommand(args: string[]): void {
 			}
 		} else if (!arg.startsWith('-')) {
 			topic = topic ? `${topic} ${arg}` : arg
+		} else {
+			process.stderr.write(`Error: Unknown briefing flag: "${arg}"\n`)
+			process.stderr.write(
+				'Usage: last-30-days briefing "topic" [--period=daily|weekly]\n',
+			)
+			process.exit(1)
 		}
 	}
 
