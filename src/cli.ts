@@ -31,6 +31,7 @@ import {
 	parseYouTubeResults,
 	searchYouTube,
 } from './index.js'
+import { generateBriefing, renderBriefingMarkdown } from './lib/briefing.js'
 import * as cache from './lib/cache.js'
 import * as config from './lib/config.js'
 import { getDateRange } from './lib/dates.js'
@@ -43,6 +44,7 @@ import * as normalize from './lib/normalize.js'
 import * as openaiReddit from './lib/openai-reddit.js'
 import * as redditEnrich from './lib/reddit-enrich.js'
 import * as render from './lib/render.js'
+import type { RedditItem, XItem, YouTubeItem } from './lib/schema.js'
 import * as schema from './lib/schema.js'
 import * as score from './lib/score.js'
 import { computeTrendScores } from './lib/trend.js'
@@ -129,7 +131,11 @@ Watch subcommands:
   last-30-days watch remove "topic"
                     Remove a topic from your watchlist
   last-30-days watch history "topic" [--limit=10]
-                    Show run history for a topic`
+                    Show run history for a topic
+
+Briefing subcommands:
+  last-30-days briefing "topic" [--period=daily|weekly]
+                    Generate a briefing from watchlist run history`
 
 	console.log(text)
 	process.exit(0)
@@ -717,6 +723,54 @@ function watchHistory(topic: string, limit: number): void {
 }
 
 /**
+ * Handles the `briefing` subcommand.
+ *
+ * Usage: last-30-days briefing "topic" [--period=daily|weekly]
+ *
+ * Fetches run history for the topic from the watchlist store, generates a
+ * briefing with optional delta detection, and prints it as markdown to stdout.
+ *
+ * @param args - Remaining argv after the `briefing` token.
+ */
+function handleBriefingCommand(args: string[]): void {
+	let topic = ''
+	let period: 'daily' | 'weekly' = 'daily'
+
+	for (const arg of args) {
+		if (arg.startsWith('--period=')) {
+			const val = arg.slice('--period='.length)
+			if (val === 'daily' || val === 'weekly') {
+				period = val
+			} else {
+				process.stderr.write(
+					`Error: Invalid --period value: "${val}". Valid: daily, weekly\n`,
+				)
+				process.exit(1)
+			}
+		} else if (!arg.startsWith('-')) {
+			topic = topic ? `${topic} ${arg}` : arg
+		}
+	}
+
+	if (!topic) {
+		process.stderr.write('Error: briefing requires a topic.\n')
+		process.stderr.write(
+			'Usage: last-30-days briefing "topic" [--period=daily|weekly]\n',
+		)
+		process.exit(1)
+	}
+
+	// Fetch enough history for the period: daily=2 runs, weekly=8 runs.
+	const limit = period === 'weekly' ? 8 : 2
+	const runs = getHistory(topic, limit)
+	// Keep core briefing logic time-free by creating timestamp at the CLI boundary.
+	const generatedAt = new Date().toISOString()
+	const briefing = generateBriefing(topic, runs, period, generatedAt)
+	process.stdout.write(renderBriefingMarkdown(briefing))
+	process.stdout.write('\n')
+}
+
+/**
  * Routes `watch` subcommands: add, list, remove, history.
  *
  * @param args - Remaining argv after the `watch` token.
@@ -868,10 +922,10 @@ async function main() {
 		return
 	}
 
-	// Briefing subcommand -- stub for PR-010.
+	// Briefing subcommand.
 	if (rawArgs[0] === 'briefing') {
-		process.stderr.write('briefing subcommand is not yet implemented.\n')
-		process.exit(1)
+		handleBriefingCommand(rawArgs.slice(1))
+		return
 	}
 
 	const args = parseArgs(rawArgs)
@@ -1270,9 +1324,9 @@ async function main() {
 		scoreOpts,
 	)
 
-	const sortedReddit = score.sortItems(scoredReddit)
-	const sortedX = score.sortItems(scoredX)
-	const sortedYouTube = score.sortItems(scoredYouTube)
+	const sortedReddit = score.sortItems(scoredReddit) as RedditItem[]
+	const sortedX = score.sortItems(scoredX) as XItem[]
+	const sortedYouTube = score.sortItems(scoredYouTube) as YouTubeItem[]
 
 	const dedupedReddit = dedupe.dedupeReddit(sortedReddit)
 	const dedupedX = dedupe.dedupeX(sortedX)

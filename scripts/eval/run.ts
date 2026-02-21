@@ -5,6 +5,7 @@
  */
 
 import {
+	existsSync,
 	mkdirSync,
 	readdirSync,
 	readFileSync,
@@ -91,6 +92,12 @@ interface TopicResult {
 	error?: string
 }
 
+/**
+ * Eval fixtures are anchored to January/February 2026.
+ * Use a wider lookback so mocked runs stay populated over time.
+ */
+const EVAL_DAYS = 60
+
 /** Load JSON fixture from the fixtures/eval directory. */
 function loadFixture<T>(name: string): T {
 	const path = join(ROOT, 'fixtures', 'eval', name)
@@ -111,6 +118,7 @@ function runTopic(
 			topic,
 			'--mock',
 			'--emit=json',
+			`--days=${EVAL_DAYS}`,
 			`--outdir=${outdir}`,
 		],
 		{ cwd: ROOT, timeout: 120_000 },
@@ -120,12 +128,20 @@ function runTopic(
 
 	let report: ReportData | null = null
 	if (success) {
-		// Find the JSON output file in outdir
+		// Prefer deterministic report artifact over raw payload files.
 		try {
-			const files = readdirSync(outdir).filter((f) => f.endsWith('.json'))
-			if (files.length > 0) {
-				const jsonPath = join(outdir, files[0]!)
-				report = JSON.parse(readFileSync(jsonPath, 'utf-8')) as ReportData
+			const reportPath = join(outdir, 'report.json')
+			if (existsSync(reportPath)) {
+				report = JSON.parse(readFileSync(reportPath, 'utf-8')) as ReportData
+			} else {
+				// Fallback for unexpected layouts: choose report*.json only.
+				const files = readdirSync(outdir).filter((f) =>
+					/^report.*\.json$/i.test(f),
+				)
+				if (files.length > 0) {
+					const jsonPath = join(outdir, files[0]!)
+					report = JSON.parse(readFileSync(jsonPath, 'utf-8')) as ReportData
+				}
 			}
 		} catch {
 			// If we can't read the output, try parsing stdout

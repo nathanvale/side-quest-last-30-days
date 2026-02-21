@@ -5,11 +5,10 @@
  * Engagement-ranked results with scoring and deduplication.
  */
 
-// YouTube
-export {
-	isYtDlpAvailable,
-	searchYouTube,
-} from './adapters/youtube.js'
+export { isYtDlpAvailable, searchYouTube } from './adapters/youtube.js'
+// Briefing
+export type { Briefing, BriefingPeriod } from './lib/briefing.js'
+export { generateBriefing, renderBriefingMarkdown } from './lib/briefing.js'
 // Cache
 export {
 	acquireCacheLock,
@@ -50,6 +49,16 @@ export {
 	jaccardSimilarity,
 	normalizeText,
 } from './lib/dedupe.js'
+// Delta detection
+export type { DeltaEntry, DeltaReport } from './lib/delta.js'
+export {
+	computeDelta,
+	detectFallingVoices,
+	detectGoneEntities,
+	detectNewEntities,
+	detectRisingVoices,
+	flattenEntities,
+} from './lib/delta.js'
 // Entity extraction
 export type { EntityResult, ExtractedEntity } from './lib/entity-extract.js'
 export {
@@ -221,8 +230,5 @@ export {
 } from './lib/websearch.js'
 // xAI X
 export { parseXResponse } from './lib/xai-x.js'
-export {
-	parseYouTubeResults,
-	parseYtDlpJsonLines,
-	youtubeEngagementScore,
-} from './lib/youtube.js'
+// YouTube
+export { parseYouTubeResults, youtubeEngagementScore } from './lib/youtube.js'

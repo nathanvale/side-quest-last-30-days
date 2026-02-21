@@ -30,6 +30,8 @@ export interface RunHistoryEntry {
 	itemCount: number
 	status: 'success' | 'error'
 	errorMessage: string | null
+	/** Raw serialized entity snapshot from DB; optional for legacy rows/tests. */
+	summaryJson?: string | null
 }
 
 /** Input shape for `recordRun`. */
@@ -61,6 +63,7 @@ interface RunHistoryRow {
 	item_count: number
 	status: string
 	error_message: string | null
+	summary_json: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -154,7 +157,7 @@ export function getHistory(
 	const conn = db ?? getDb()
 	const rows = conn
 		.query<RunHistoryRow, [string, number]>(
-			`SELECT id, topic, ran_at, duration_ms, item_count, status, error_message
+			`SELECT id, topic, ran_at, duration_ms, item_count, status, error_message, summary_json
        FROM run_history
        WHERE topic = ?
        ORDER BY ran_at DESC, id DESC
@@ -170,6 +173,7 @@ export function getHistory(
 		itemCount: r.item_count,
 		status: r.status as 'success' | 'error',
 		errorMessage: r.error_message,
+		summaryJson: r.summary_json,
 	}))
 }
 
