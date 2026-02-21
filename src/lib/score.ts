@@ -25,20 +25,18 @@ const WEBSEARCH_SOURCE_PENALTY = 15
 const WEBSEARCH_VERIFIED_BONUS = 10
 const WEBSEARCH_NO_DATE_PENALTY = 20
 
-// Trend weight (when trend data is available)
+// Default trend weight (when trend data is available)
 const WEIGHT_TREND = 0.1
-// Adjusted weights when trend data is present (sum to 0.9)
-const TREND_WEIGHT_RELEVANCE = 0.405
-const TREND_WEIGHT_RECENCY = 0.225
-const TREND_WEIGHT_ENGAGEMENT = 0.27
-
-// Adjusted websearch weights when trend data is present (sum to 0.9)
-const TREND_WEBSEARCH_WEIGHT_RELEVANCE = 0.495
-const TREND_WEBSEARCH_WEIGHT_RECENCY = 0.405
 
 // Default engagement score for unknown
 const DEFAULT_ENGAGEMENT = 35
 const UNKNOWN_ENGAGEMENT_PENALTY = 10
+
+/** Options for score functions. */
+export interface ScoreOptions {
+	intentWeights?: IntentWeights
+	trendWeight?: number
+}
 
 /** Safe log1p that handles null and negative values. */
 function log1pSafe(x: number | null | undefined): number {
@@ -108,9 +106,11 @@ export function scoreRedditItems(
 	items: RedditItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
-	intentWeights?: IntentWeights,
+	opts?: ScoreOptions,
 ): RedditItem[] {
 	if (items.length === 0) return items
+	const intentWeights = opts?.intentWeights
+	const trendWeight = opts?.trendWeight ?? WEIGHT_TREND
 
 	const engRaw = items.map((item) =>
 		computeRedditEngagementRaw(item.engagement),
@@ -135,12 +135,12 @@ export function scoreRedditItems(
 		let overall: number
 		if (intentWeights) {
 			if (ts) {
-				// Trend takes 10%; intent weights scaled to 90%
+				const baseWeight = 1 - trendWeight
 				overall =
-					intentWeights.relevance * 0.9 * relScore +
-					intentWeights.recency * 0.9 * recScore +
-					intentWeights.engagement * 0.9 * engScore +
-					0.1 * ts.trendScore * 100
+					intentWeights.relevance * baseWeight * relScore +
+					intentWeights.recency * baseWeight * recScore +
+					intentWeights.engagement * baseWeight * engScore +
+					trendWeight * ts.trendScore * 100
 			} else {
 				overall =
 					intentWeights.relevance * relScore +
@@ -148,11 +148,21 @@ export function scoreRedditItems(
 					intentWeights.engagement * engScore
 			}
 		} else if (ts) {
+			const baseWeight = 1 - trendWeight
 			overall =
-				TREND_WEIGHT_RELEVANCE * relScore +
-				TREND_WEIGHT_RECENCY * recScore +
-				TREND_WEIGHT_ENGAGEMENT * engScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				(WEIGHT_RELEVANCE /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					relScore +
+				(WEIGHT_RECENCY /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					recScore +
+				(WEIGHT_ENGAGEMENT /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					engScore +
+				trendWeight * ts.trendScore * 100
 		} else {
 			overall =
 				WEIGHT_RELEVANCE * relScore +
@@ -165,6 +175,12 @@ export function scoreRedditItems(
 		else if (item.date_confidence === 'med') overall -= 5
 
 		item.score = Math.max(0, Math.min(100, Math.floor(overall)))
+
+		if (ts) {
+			item.trend_score = Math.round(ts.trendScore * 100)
+			item.momentum = ts.momentum
+			item.subs.trend_score = Math.round(ts.trendScore * 100)
+		}
 	}
 
 	return items
@@ -181,9 +197,11 @@ export function scoreXItems(
 	items: XItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
-	intentWeights?: IntentWeights,
+	opts?: ScoreOptions,
 ): XItem[] {
 	if (items.length === 0) return items
+	const intentWeights = opts?.intentWeights
+	const trendWeight = opts?.trendWeight ?? WEIGHT_TREND
 
 	const engRaw = items.map((item) => computeXEngagementRaw(item.engagement))
 	const engNormalized = normalizeTo100(engRaw)
@@ -206,12 +224,12 @@ export function scoreXItems(
 		let overall: number
 		if (intentWeights) {
 			if (ts) {
-				// Trend takes 10%; intent weights scaled to 90%
+				const baseWeight = 1 - trendWeight
 				overall =
-					intentWeights.relevance * 0.9 * relScore +
-					intentWeights.recency * 0.9 * recScore +
-					intentWeights.engagement * 0.9 * engScore +
-					0.1 * ts.trendScore * 100
+					intentWeights.relevance * baseWeight * relScore +
+					intentWeights.recency * baseWeight * recScore +
+					intentWeights.engagement * baseWeight * engScore +
+					trendWeight * ts.trendScore * 100
 			} else {
 				overall =
 					intentWeights.relevance * relScore +
@@ -219,11 +237,21 @@ export function scoreXItems(
 					intentWeights.engagement * engScore
 			}
 		} else if (ts) {
+			const baseWeight = 1 - trendWeight
 			overall =
-				TREND_WEIGHT_RELEVANCE * relScore +
-				TREND_WEIGHT_RECENCY * recScore +
-				TREND_WEIGHT_ENGAGEMENT * engScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				(WEIGHT_RELEVANCE /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					relScore +
+				(WEIGHT_RECENCY /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					recScore +
+				(WEIGHT_ENGAGEMENT /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					engScore +
+				trendWeight * ts.trendScore * 100
 		} else {
 			overall =
 				WEIGHT_RELEVANCE * relScore +
@@ -236,6 +264,12 @@ export function scoreXItems(
 		else if (item.date_confidence === 'med') overall -= 5
 
 		item.score = Math.max(0, Math.min(100, Math.floor(overall)))
+
+		if (ts) {
+			item.trend_score = Math.round(ts.trendScore * 100)
+			item.momentum = ts.momentum
+			item.subs.trend_score = Math.round(ts.trendScore * 100)
+		}
 	}
 
 	return items
@@ -252,9 +286,11 @@ export function scoreWebsearchItems(
 	items: WebSearchItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
-	intentWeights?: IntentWeights,
+	opts?: ScoreOptions,
 ): WebSearchItem[] {
 	if (items.length === 0) return items
+	const intentWeights = opts?.intentWeights
+	const trendWeight = opts?.trendWeight ?? WEIGHT_TREND
 
 	for (const item of items) {
 		const relScore = Number.isFinite(item.relevance)
@@ -276,19 +312,26 @@ export function scoreWebsearchItems(
 			const recShare = relPlusRec > 0 ? intentWeights.recency / relPlusRec : 0.5
 
 			if (ts) {
-				// Trend takes 10%; intent weights scaled to 90%
+				const baseWeight = 1 - trendWeight
 				overall =
-					relShare * 0.9 * relScore +
-					recShare * 0.9 * recScore +
-					0.1 * ts.trendScore * 100
+					relShare * baseWeight * relScore +
+					recShare * baseWeight * recScore +
+					trendWeight * ts.trendScore * 100
 			} else {
 				overall = relShare * relScore + recShare * recScore
 			}
 		} else if (ts) {
+			const baseWeight = 1 - trendWeight
 			overall =
-				TREND_WEBSEARCH_WEIGHT_RELEVANCE * relScore +
-				TREND_WEBSEARCH_WEIGHT_RECENCY * recScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				(WEBSEARCH_WEIGHT_RELEVANCE /
+					(WEBSEARCH_WEIGHT_RELEVANCE + WEBSEARCH_WEIGHT_RECENCY)) *
+					baseWeight *
+					relScore +
+				(WEBSEARCH_WEIGHT_RECENCY /
+					(WEBSEARCH_WEIGHT_RELEVANCE + WEBSEARCH_WEIGHT_RECENCY)) *
+					baseWeight *
+					recScore +
+				trendWeight * ts.trendScore * 100
 		} else {
 			overall =
 				WEBSEARCH_WEIGHT_RELEVANCE * relScore +
@@ -302,6 +345,12 @@ export function scoreWebsearchItems(
 			overall -= WEBSEARCH_NO_DATE_PENALTY
 
 		item.score = Math.max(0, Math.min(100, Math.floor(overall)))
+
+		if (ts) {
+			item.trend_score = Math.round(ts.trendScore * 100)
+			item.momentum = ts.momentum
+			item.subs.trend_score = Math.round(ts.trendScore * 100)
+		}
 	}
 
 	return items
@@ -327,9 +376,11 @@ export function scoreYouTubeItems(
 	items: YouTubeItem[],
 	maxDays = 30,
 	trendScores?: Map<string, TrendScore>,
-	intentWeights?: IntentWeights,
+	opts?: ScoreOptions,
 ): YouTubeItem[] {
 	if (items.length === 0) return items
+	const intentWeights = opts?.intentWeights
+	const trendWeight = opts?.trendWeight ?? WEIGHT_TREND
 
 	const engRaw = items.map((item) => computeYouTubeEngagementRaw(item))
 	const engNormalized = normalizeTo100(engRaw)
@@ -356,12 +407,12 @@ export function scoreYouTubeItems(
 		let overall: number
 		if (intentWeights) {
 			if (ts) {
-				// Trend takes 10%; intent weights scaled to 90%
+				const baseWeight = 1 - trendWeight
 				overall =
-					intentWeights.relevance * 0.9 * relScore +
-					intentWeights.recency * 0.9 * recScore +
-					intentWeights.engagement * 0.9 * engScore +
-					0.1 * ts.trendScore * 100
+					intentWeights.relevance * baseWeight * relScore +
+					intentWeights.recency * baseWeight * recScore +
+					intentWeights.engagement * baseWeight * engScore +
+					trendWeight * ts.trendScore * 100
 			} else {
 				overall =
 					intentWeights.relevance * relScore +
@@ -369,11 +420,21 @@ export function scoreYouTubeItems(
 					intentWeights.engagement * engScore
 			}
 		} else if (ts) {
+			const baseWeight = 1 - trendWeight
 			overall =
-				TREND_WEIGHT_RELEVANCE * relScore +
-				TREND_WEIGHT_RECENCY * recScore +
-				TREND_WEIGHT_ENGAGEMENT * engScore +
-				WEIGHT_TREND * ts.trendScore * 100
+				(WEIGHT_RELEVANCE /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					relScore +
+				(WEIGHT_RECENCY /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					recScore +
+				(WEIGHT_ENGAGEMENT /
+					(WEIGHT_RELEVANCE + WEIGHT_RECENCY + WEIGHT_ENGAGEMENT)) *
+					baseWeight *
+					engScore +
+				trendWeight * ts.trendScore * 100
 		} else {
 			overall =
 				WEIGHT_RELEVANCE * relScore +
@@ -385,6 +446,12 @@ export function scoreYouTubeItems(
 		else if (item.date_confidence === 'med') overall -= 5
 
 		item.score = Math.max(0, Math.min(100, Math.floor(overall)))
+
+		if (ts) {
+			item.trend_score = Math.round(ts.trendScore * 100)
+			item.momentum = ts.momentum
+			item.subs.trend_score = Math.round(ts.trendScore * 100)
+		}
 	}
 
 	return items
@@ -392,8 +459,8 @@ export function scoreYouTubeItems(
 
 /** Sort items by score (descending), then date, then source priority. */
 export function sortItems(
-	items: (RedditItem | XItem | WebSearchItem)[],
-): (RedditItem | XItem | WebSearchItem)[] {
+	items: (RedditItem | XItem | WebSearchItem | YouTubeItem)[],
+): (RedditItem | XItem | WebSearchItem | YouTubeItem)[] {
 	return [...items].sort((a, b) => {
 		// Primary: score descending
 		if (a.score !== b.score) return b.score - a.score
@@ -415,8 +482,11 @@ export function sortItems(
 	})
 }
 
-function getSourcePriority(item: RedditItem | XItem | WebSearchItem): number {
+function getSourcePriority(
+	item: RedditItem | XItem | WebSearchItem | YouTubeItem,
+): number {
 	if ('subreddit' in item) return 0 // Reddit
 	if ('author_handle' in item) return 1 // X
-	return 2 // WebSearch
+	if ('channel' in item) return 2 // YouTube
+	return 3 // WebSearch
 }

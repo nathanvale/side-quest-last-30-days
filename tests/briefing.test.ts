@@ -8,7 +8,10 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { generateBriefing, renderBriefingMarkdown } from '../src/lib/briefing'
+import {
+	generateBriefing as generateBriefingCore,
+	renderBriefingMarkdown,
+} from '../src/lib/briefing'
 import {
 	computeDelta,
 	detectFallingVoices,
@@ -19,6 +22,13 @@ import {
 } from '../src/lib/delta'
 import type { EntityResult, ExtractedEntity } from '../src/lib/entity-extract'
 import type { RunHistoryEntry } from '../src/lib/watchlist'
+
+const TEST_GENERATED_AT = '2026-02-20T00:00:00.000Z'
+
+/** Helper to keep briefing tests focused on content, not wall-clock time. */
+function makeBriefing(topic: string, runs: RunHistoryEntry[], period: 'daily' | 'weekly') {
+	return generateBriefingCore(topic, runs, period, TEST_GENERATED_AT)
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -64,14 +74,14 @@ function makeRun(id: number, ranAt: string, itemCount = 10): RunHistoryEntry {
 
 /**
  * Makes a RunHistoryEntry with a serialised summary_json payload.
- * We cast to include the summaryJson property expected by briefing.ts.
+ * `summaryJson` is optional on RunHistoryEntry, but included here explicitly.
  */
 function makeRunWithSummary(
 	id: number,
 	ranAt: string,
 	entities: EntityResult | null,
 	itemCount = 10,
-): RunHistoryEntry & { summaryJson: string } {
+): RunHistoryEntry {
 	return {
 		id,
 		topic: 'AI trends',
@@ -465,7 +475,7 @@ describe('computeDelta', () => {
 
 describe('generateBriefing', () => {
 	test('0 runs: returns empty briefing with null fields', () => {
-		const briefing = generateBriefing('AI trends', [], 'daily')
+		const briefing = makeBriefing('AI trends', [], 'daily')
 		expect(briefing.topic).toBe('AI trends')
 		expect(briefing.period).toBe('daily')
 		expect(briefing.currentRun).toBeNull()
@@ -475,15 +485,14 @@ describe('generateBriefing', () => {
 		expect(briefing.itemCount).toBe(0)
 	})
 
-	test('0 runs: generatedAt is a non-empty ISO string', () => {
-		const briefing = generateBriefing('test', [], 'daily')
-		expect(briefing.generatedAt).toBeTruthy()
-		expect(briefing.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+	test('generatedAt uses caller-provided timestamp', () => {
+		const briefing = makeBriefing('test', [], 'daily')
+		expect(briefing.generatedAt).toBe(TEST_GENERATED_AT)
 	})
 
 	test('1 run without summary: currentRun set, no delta', () => {
 		const run = makeRun(1, '2026-02-18T10:00:00Z', 15)
-		const briefing = generateBriefing('AI trends', [run], 'daily')
+		const briefing = makeBriefing('AI trends', [run], 'daily')
 		expect(briefing.currentRun).not.toBeNull()
 		expect(briefing.previousRun).toBeNull()
 		expect(briefing.delta).toBeNull()
@@ -493,7 +502,7 @@ describe('generateBriefing', () => {
 
 	test('1 run with entities in summary: topEntities populated', () => {
 		const run = makeRunWithSummary(1, '2026-02-18T10:00:00Z', fullResult(), 20)
-		const briefing = generateBriefing('AI trends', [run], 'daily')
+		const briefing = makeBriefing('AI trends', [run], 'daily')
 		expect(briefing.topEntities).not.toBeNull()
 		expect(briefing.topEntities?.handles).toHaveLength(1)
 		expect(briefing.itemCount).toBe(20)
@@ -509,7 +518,7 @@ describe('generateBriefing', () => {
 		}
 		const run1 = makeRunWithSummary(2, '2026-02-19T10:00:00Z', curr)
 		const run2 = makeRunWithSummary(1, '2026-02-18T10:00:00Z', prev)
-		const briefing = generateBriefing('AI trends', [run1, run2], 'daily')
+		const briefing = makeBriefing('AI trends', [run1, run2], 'daily')
 		expect(briefing.delta).not.toBeNull()
 		// r/machinelearning, #claude, transformer are new
 		expect((briefing.delta?.newEntities.length ?? 0) >= 1).toBe(true)
@@ -519,7 +528,7 @@ describe('generateBriefing', () => {
 		const curr = fullResult()
 		const run1 = makeRunWithSummary(2, '2026-02-19T10:00:00Z', curr)
 		const run2 = makeRun(1, '2026-02-18T10:00:00Z')
-		const briefing = generateBriefing('AI trends', [run1, run2], 'daily')
+		const briefing = makeBriefing('AI trends', [run1, run2], 'daily')
 		// No entity data in previous -- delta cannot be computed
 		expect(briefing.delta).toBeNull()
 	})
@@ -529,7 +538,7 @@ describe('generateBriefing', () => {
 			...makeRun(1, '2026-02-18T10:00:00Z'),
 			summaryJson: 'not-valid-json',
 		}
-		const briefing = generateBriefing('AI trends', [run], 'daily')
+		const briefing = makeBriefing('AI trends', [run], 'daily')
 		expect(briefing.topEntities).toBeNull()
 	})
 
@@ -538,13 +547,43 @@ describe('generateBriefing', () => {
 			...makeRun(1, '2026-02-18T10:00:00Z'),
 			summaryJson: JSON.stringify({ itemCount: 5 }),
 		}
-		const briefing = generateBriefing('AI trends', [run], 'daily')
+		const briefing = makeBriefing('AI trends', [run], 'daily')
 		expect(briefing.topEntities).toBeNull()
 		expect(briefing.itemCount).toBe(5)
 	})
 
+	test('malformed entities (null fields) are dropped gracefully', () => {
+		const run: RunHistoryEntry & { summaryJson: string } = {
+			...makeRun(1, '2026-02-18T10:00:00Z'),
+			summaryJson: JSON.stringify({ entities: { handles: null, subreddits: [] }, itemCount: 5 }),
+		}
+		const briefing = makeBriefing('AI trends', [run], 'daily')
+		// Malformed entities should be dropped, not crash
+		expect(briefing.topEntities).toBeNull()
+		expect(briefing.itemCount).toBe(5)
+	})
+
+	test('entities as array (wrong shape) are dropped gracefully', () => {
+		const run: RunHistoryEntry & { summaryJson: string } = {
+			...makeRun(1, '2026-02-18T10:00:00Z'),
+			summaryJson: JSON.stringify({ entities: ['bad'], itemCount: 3 }),
+		}
+		const briefing = makeBriefing('AI trends', [run], 'daily')
+		expect(briefing.topEntities).toBeNull()
+	})
+
+	test('malformed entities do not crash renderBriefingMarkdown', () => {
+		const run: RunHistoryEntry & { summaryJson: string } = {
+			...makeRun(1, '2026-02-18T10:00:00Z'),
+			summaryJson: JSON.stringify({ entities: { handles: 'not-array' }, itemCount: 2 }),
+		}
+		const briefing = makeBriefing('AI trends', [run], 'daily')
+		const md = renderBriefingMarkdown(briefing)
+		expect(md).toContain('No entity data available.')
+	})
+
 	test('weekly period is preserved in briefing', () => {
-		const briefing = generateBriefing('Bun 1.2', [], 'weekly')
+		const briefing = makeBriefing('Bun 1.2', [], 'weekly')
 		expect(briefing.period).toBe('weekly')
 	})
 })
@@ -555,14 +594,14 @@ describe('generateBriefing', () => {
 
 describe('renderBriefingMarkdown', () => {
 	test('renders header with topic and period', () => {
-		const briefing = generateBriefing('Claude Code', [], 'daily')
+		const briefing = makeBriefing('Claude Code', [], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('# Briefing: Claude Code')
 		expect(md).toContain('**Period**: daily')
 	})
 
 	test('renders all expected section headings', () => {
-		const briefing = generateBriefing('test', [], 'daily')
+		const briefing = makeBriefing('test', [], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('## Summary')
 		expect(md).toContain("## What's New")
@@ -573,7 +612,7 @@ describe('renderBriefingMarkdown', () => {
 	})
 
 	test('0 runs: shows appropriate no-data messages', () => {
-		const briefing = generateBriefing('test', [], 'daily')
+		const briefing = makeBriefing('test', [], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('No runs recorded yet.')
 		expect(md).toContain('No new entities detected.')
@@ -585,14 +624,14 @@ describe('renderBriefingMarkdown', () => {
 
 	test('single run shows "No previous run"', () => {
 		const run = makeRun(1, '2026-02-19T10:00:00Z')
-		const briefing = generateBriefing('test', [run], 'daily')
+		const briefing = makeBriefing('test', [run], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('No previous run')
 	})
 
 	test('single run shows latest run timestamp and item count', () => {
 		const run = makeRun(1, '2026-02-19T10:00:00Z', 42)
-		const briefing = generateBriefing('test', [run], 'daily')
+		const briefing = makeBriefing('test', [run], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('2026-02-19T10:00:00Z')
 		expect(md).toContain('42 items')
@@ -613,7 +652,7 @@ describe('renderBriefingMarkdown', () => {
 		}
 		const run1 = makeRunWithSummary(2, '2026-02-19T10:00:00Z', curr)
 		const run2 = makeRunWithSummary(1, '2026-02-18T10:00:00Z', prev)
-		const briefing = generateBriefing('test', [run1, run2], 'daily')
+		const briefing = makeBriefing('test', [run1, run2], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('+500')
 		expect(md).toContain('@alice')
@@ -634,14 +673,14 @@ describe('renderBriefingMarkdown', () => {
 		}
 		const run1 = makeRunWithSummary(2, '2026-02-19T10:00:00Z', curr)
 		const run2 = makeRunWithSummary(1, '2026-02-18T10:00:00Z', prev)
-		const briefing = generateBriefing('test', [run1, run2], 'daily')
+		const briefing = makeBriefing('test', [run1, run2], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('-600')
 	})
 
 	test('renders top entities from the latest run', () => {
 		const run = makeRunWithSummary(1, '2026-02-19T10:00:00Z', fullResult())
-		const briefing = generateBriefing('test', [run], 'daily')
+		const briefing = makeBriefing('test', [run], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('@alice')
 		expect(md).toContain('r/machinelearning')
@@ -653,7 +692,7 @@ describe('renderBriefingMarkdown', () => {
 		const curr = fullResult()
 		const run1 = makeRunWithSummary(2, '2026-02-19T10:00:00Z', curr)
 		const run2 = makeRunWithSummary(1, '2026-02-18T10:00:00Z', curr)
-		const briefing = generateBriefing('test', [run1, run2], 'daily')
+		const briefing = makeBriefing('test', [run1, run2], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('No new entities detected.')
 	})
@@ -668,7 +707,7 @@ describe('renderBriefingMarkdown', () => {
 		}
 		const run1 = makeRunWithSummary(2, '2026-02-19T10:00:00Z', curr)
 		const run2 = makeRunWithSummary(1, '2026-02-18T10:00:00Z', prev)
-		const briefing = generateBriefing('test', [run1, run2], 'daily')
+		const briefing = makeBriefing('test', [run1, run2], 'daily')
 		const md = renderBriefingMarkdown(briefing)
 		expect(md).toContain('@newuser')
 	})

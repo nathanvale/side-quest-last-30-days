@@ -60,16 +60,29 @@ interface SummaryJson {
  * @param entry - The run history entry to parse.
  */
 function parseSummaryJson(entry: RunHistoryEntry): SummaryJson | null {
-	// RunHistoryEntry does not expose summary_json in the public type --
-	// it is stored in the DB but omitted from the mapped interface.
-	// We cast to access it when present (e.g., tests that pass enriched rows).
-	const raw = (entry as RunHistoryEntry & { summaryJson?: string | null })
-		.summaryJson
+	const raw = entry.summaryJson
 	if (!raw) return null
 	try {
 		const parsed = JSON.parse(raw) as unknown
 		if (typeof parsed !== 'object' || parsed === null) return null
-		return parsed as SummaryJson
+		const obj = parsed as Record<string, unknown>
+		// Validate entities shape -- each field must be an array or absent.
+		// Malformed payloads (e.g. { handles: null }) would crash renderBriefingMarkdown.
+		if (obj.entities != null) {
+			if (typeof obj.entities !== 'object' || Array.isArray(obj.entities)) {
+				return { ...(obj as SummaryJson), entities: undefined }
+			}
+			const ent = obj.entities as Record<string, unknown>
+			const keys = ['handles', 'subreddits', 'hashtags', 'terms'] as const
+			for (const k of keys) {
+				// Reject if the key exists but is not an array (including null).
+				// renderBriefingMarkdown calls .length on each field.
+				if (k in ent && !Array.isArray(ent[k])) {
+					return { ...(obj as SummaryJson), entities: undefined }
+				}
+			}
+		}
+		return obj as SummaryJson
 	} catch {
 		return null
 	}
@@ -95,14 +108,14 @@ function parseSummaryJson(entry: RunHistoryEntry): SummaryJson | null {
  * @param topic   - The research topic.
  * @param runs    - Run history entries ordered most-recent first.
  * @param period  - Reporting period ('daily' or 'weekly').
+ * @param generatedAt - ISO timestamp supplied by caller.
  */
 export function generateBriefing(
 	topic: string,
 	runs: RunHistoryEntry[],
 	period: BriefingPeriod,
+	generatedAt: string,
 ): Briefing {
-	const generatedAt = new Date().toISOString()
-
 	if (runs.length === 0) {
 		return {
 			topic,

@@ -5,6 +5,7 @@
  * Engagement-ranked results with scoring and deduplication.
  */
 
+export { isYtDlpAvailable, searchYouTube } from './adapters/youtube.js'
 // Briefing
 export type { Briefing, BriefingPeriod } from './lib/briefing.js'
 export { generateBriefing, renderBriefingMarkdown } from './lib/briefing.js'
@@ -230,8 +231,4 @@ export {
 // xAI X
 export { parseXResponse } from './lib/xai-x.js'
 // YouTube
-export {
-	isYtDlpAvailable,
-	parseYouTubeResults,
-	youtubeEngagementScore,
-} from './lib/youtube.js'
+export { parseYouTubeResults, youtubeEngagementScore } from './lib/youtube.js'

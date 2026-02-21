@@ -261,6 +261,23 @@ describe('recordRun', () => {
 		db.close()
 	})
 
+	test('includes summaryJson when present in run_history', () => {
+		const db = makeDb()
+		addTopic('summary-topic', undefined, db)
+		recordRun(
+			'summary-topic',
+			{
+				...SUCCESS_RUN,
+				summaryJson: JSON.stringify({ itemCount: 10, entities: { handles: [] } }),
+			},
+			db,
+		)
+		const [entry] = getHistory('summary-topic', 1, db)
+		expect(entry?.summaryJson).toBeTruthy()
+		expect(typeof entry?.summaryJson).toBe('string')
+		db.close()
+	})
+
 	test('records an error run with status=error and message', () => {
 		const db = makeDb()
 		addTopic('error-topic', undefined, db)

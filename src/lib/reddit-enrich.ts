@@ -153,6 +153,7 @@ export async function enrichRedditItem(
 	mockThreadData: unknown | null = null,
 ): Promise<Record<string, unknown>> {
 	const url = (item.url as string) ?? ''
+	const isMock = mockThreadData !== null
 
 	const threadData = await fetchThreadData(url, mockThreadData)
 	if (!threadData) return item
@@ -170,7 +171,12 @@ export async function enrichRedditItem(
 
 		const createdUtc = submission.created_utc as number | undefined
 		if (createdUtc) {
-			item.date = timestampToDate(createdUtc)
+			const parsedDate = timestampToDate(createdUtc)
+			// In mock mode, preserve fixture dates if they already exist so
+			// enrichment doesn't collapse all items onto sample-thread timestamps.
+			if (parsedDate && (!isMock || !item.date)) {
+				item.date = parsedDate
+			}
 		}
 	}
 

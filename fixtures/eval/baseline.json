@@ -1,12 +1,12 @@
 {
-	"generatedAt": "2026-02-18T12:38:01.962Z",
+	"generatedAt": "2026-02-20T02:58:55.902Z",
 	"topicCount": 10,
 	"kpis": {
 		"runReliability": 1,
-		"performanceP95Seconds": 0.01980375000000001,
-		"avgCitationValidity": 0,
-		"avgTrendRecallAt10": 0,
-		"avgOracleRecall": 0
+		"performanceP95Seconds": 0.025385165999999997,
+		"avgCitationValidity": 1,
+		"avgTrendRecallAt10": 0.06000000000000001,
+		"avgOracleRecall": 0.1
 	},
 	"thresholds": {
 		"citationValidity": 0.5,
@@ -15,7 +15,7 @@
 		"regressionSafetyThreshold": 0.02
 	},
 	"passed": {
-		"citationValidity": false,
+		"citationValidity": true,
 		"runReliability": true,
 		"performanceP95": true,
 		"regressionSafety": true
@@ -25,101 +25,101 @@
 			"topic": "Claude AI prompting techniques",
 			"category": "prompting",
 			"success": true,
-			"durationSeconds": 0.019628125,
-			"citationValidity": 0,
-			"trendRecallAt10": 0,
-			"oracleRecall": 0,
-			"itemCount": 0
+			"durationSeconds": 0.025385165999999997,
+			"citationValidity": 1,
+			"trendRecallAt10": 0.2,
+			"oracleRecall": 0.4,
+			"itemCount": 9
 		},
 		{
 			"topic": "React Server Components",
 			"category": "trending",
 			"success": true,
-			"durationSeconds": 0.018666542,
-			"citationValidity": 0,
+			"durationSeconds": 0.024394915999999996,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
 			"oracleRecall": 0,
-			"itemCount": 0
+			"itemCount": 9
 		},
 		{
 			"topic": "Rust vs Go 2025",
 			"category": "evergreen",
 			"success": true,
-			"durationSeconds": 0.018273207999999996,
-			"citationValidity": 0,
+			"durationSeconds": 0.024368208000000002,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
 			"oracleRecall": 0,
-			"itemCount": 0
+			"itemCount": 9
 		},
 		{
 			"topic": "OpenAI o3 model",
 			"category": "news",
 			"success": true,
-			"durationSeconds": 0.019608333000000002,
-			"citationValidity": 0,
+			"durationSeconds": 0.023473792000000004,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
-			"oracleRecall": 0,
-			"itemCount": 0
+			"oracleRecall": 0.2,
+			"itemCount": 9
 		},
 		{
 			"topic": "TypeScript 5.8 features",
 			"category": "trending",
 			"success": true,
-			"durationSeconds": 0.018603958000000007,
-			"citationValidity": 0,
+			"durationSeconds": 0.02387120800000001,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
 			"oracleRecall": 0,
-			"itemCount": 0
+			"itemCount": 9
 		},
 		{
 			"topic": "LLM fine-tuning best practices",
 			"category": "recommendations",
 			"success": true,
-			"durationSeconds": 0.01980375000000001,
-			"citationValidity": 0,
-			"trendRecallAt10": 0,
-			"oracleRecall": 0,
-			"itemCount": 0
+			"durationSeconds": 0.023049166000000013,
+			"citationValidity": 1,
+			"trendRecallAt10": 0.2,
+			"oracleRecall": 0.2,
+			"itemCount": 9
 		},
 		{
 			"topic": "Bun runtime performance",
 			"category": "niche",
 			"success": true,
-			"durationSeconds": 0.019143124999999983,
-			"citationValidity": 0,
+			"durationSeconds": 0.022541458000000007,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
 			"oracleRecall": 0,
-			"itemCount": 0
+			"itemCount": 9
 		},
 		{
 			"topic": "AI code review tools",
 			"category": "recommendations",
 			"success": true,
-			"durationSeconds": 0.018803082999999988,
-			"citationValidity": 0,
+			"durationSeconds": 0.022609083999999995,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
 			"oracleRecall": 0,
-			"itemCount": 0
+			"itemCount": 9
 		},
 		{
 			"topic": "WebAssembly WASI preview 2",
 			"category": "niche",
 			"success": true,
-			"durationSeconds": 0.019797125000000023,
-			"citationValidity": 0,
+			"durationSeconds": 0.022063500000000003,
+			"citationValidity": 1,
 			"trendRecallAt10": 0,
 			"oracleRecall": 0,
-			"itemCount": 0
+			"itemCount": 9
 		},
 		{
 			"topic": "GitHub Copilot alternatives",
 			"category": "evergreen",
 			"success": true,
-			"durationSeconds": 0.019146625,
-			"citationValidity": 0,
-			"trendRecallAt10": 0,
-			"oracleRecall": 0,
-			"itemCount": 0
+			"durationSeconds": 0.022213416999999992,
+			"citationValidity": 1,
+			"trendRecallAt10": 0.2,
+			"oracleRecall": 0.2,
+			"itemCount": 9
 		}
 	]
 }

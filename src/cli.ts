@@ -44,6 +44,7 @@ import * as normalize from './lib/normalize.js'
 import * as openaiReddit from './lib/openai-reddit.js'
 import * as redditEnrich from './lib/reddit-enrich.js'
 import * as render from './lib/render.js'
+import type { RedditItem, XItem, YouTubeItem } from './lib/schema.js'
 import * as schema from './lib/schema.js'
 import * as score from './lib/score.js'
 import { computeTrendScores } from './lib/trend.js'
@@ -762,7 +763,9 @@ function handleBriefingCommand(args: string[]): void {
 	// Fetch enough history for the period: daily=2 runs, weekly=8 runs.
 	const limit = period === 'weekly' ? 8 : 2
 	const runs = getHistory(topic, limit)
-	const briefing = generateBriefing(topic, runs, period)
+	// Keep core briefing logic time-free by creating timestamp at the CLI boundary.
+	const generatedAt = new Date().toISOString()
+	const briefing = generateBriefing(topic, runs, period, generatedAt)
 	process.stdout.write(renderBriefingMarkdown(briefing))
 	process.stdout.write('\n')
 }
@@ -1321,9 +1324,9 @@ async function main() {
 		scoreOpts,
 	)
 
-	const sortedReddit = score.sortItems(scoredReddit)
-	const sortedX = score.sortItems(scoredX)
-	const sortedYouTube = score.sortItems(scoredYouTube)
+	const sortedReddit = score.sortItems(scoredReddit) as RedditItem[]
+	const sortedX = score.sortItems(scoredX) as XItem[]
+	const sortedYouTube = score.sortItems(scoredYouTube) as YouTubeItem[]
 
 	const dedupedReddit = dedupe.dedupeReddit(sortedReddit)
 	const dedupedX = dedupe.dedupeX(sortedX)
