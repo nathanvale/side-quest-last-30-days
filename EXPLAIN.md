@@ -1,4 +1,4 @@
-# last-30-days: The Story Behind the Code
+# Word on the Street: The Story Behind the Code
 
 *What happens when you teach an LLM to be a research assistant, then teach it to fact-check itself.*
 
@@ -10,7 +10,7 @@ You want to know what people are saying about a topic *right now* -- not what Go
 
 The core insight: **engagement is a better signal than relevance scores.** A post with 500 upvotes and 200 comments tells you more about community sentiment than ten keyword-matched articles. But engagement data doesn't live in search APIs -- it lives on the platforms themselves.
 
-So last-30-days does something unusual: it uses LLMs *as search engines*, then goes behind their back to verify the results.
+So wots does something unusual: it uses LLMs *as search engines*, then goes behind their back to verify the results.
 
 ---
 
@@ -67,7 +67,7 @@ It also means the library (`index.ts`) and CLI (`cli.ts`) can share all the logi
 
 ### Bun
 
-Runtime + package manager + test runner + bundler ecosystem. The CLI ships as `bunx --bun @side-quest/last-30-days`, and every millisecond of cold-start matters when Claude agents spawn it as a subprocess. Bun's startup time is the reason this works as a sub-agent tool at all.
+Runtime + package manager + test runner + bundler ecosystem. The CLI ships as `bunx --bun @side-quest/word-on-the-street`, and every millisecond of cold-start matters when Claude agents spawn it as a subprocess. Bun's startup time is the reason this works as a sub-agent tool at all.
 
 ### bunup
 
@@ -184,13 +184,13 @@ Why this works: LLMs with search tools are better at understanding intent than k
 
 The trade-off: LLM outputs aren't deterministic, and the engagement numbers they report are approximations. That's why the enrichment step exists -- trust the LLM for discovery, verify with the source.
 
-### Model Auto-Selection
+### Model Selection
 
-For OpenAI, the code calls `/v1/models`, filters to mainline `gpt-5.x` models (excluding mini/nano/turbo/preview/pro variants), picks the highest semantic version, and caches the result for 7 days. If the selected model 404s or returns an access error, it cascades through fallbacks (`gpt-4o`, `gpt-4o-mini`).
+For OpenAI, the CLI pins to `gpt-4o-search-preview` by default for consistent Reddit coverage. If that model isn’t accessible at runtime, it falls back to `gpt-4o`. Auto-selection is still supported via `OPENAI_MODEL_POLICY=auto` when you explicitly opt in.
 
-For xAI, it uses named aliases (`grok-4-1-fast`) since xAI's API doesn't expose a `/models` endpoint the same way.
+For xAI, it uses named aliases (e.g., `grok-4-1-fast`) since xAI’s API doesn’t expose a `/models` endpoint the same way.
 
-This means the CLI automatically picks up new model releases without code changes. When OpenAI ships GPT-5.1, the CLI just starts using it.
+This lets the CLI pick up new model releases without code changes while still providing a stable fallback path.
 
 ### Low-Result Retry with Topic Extraction
 
@@ -230,6 +230,8 @@ This matters because downstream consumers depend on specific output formats:
 
 Breaking changes here break the research plugin. The JSON schema of `Report`, the section headers in compact output, the CLI flag names, and the exit codes are all part of the public API.
 
+In JSON envelope mode (`--json`), responses include a `schema_version` field to help agents detect contract changes.
+
 ---
 
 ## The Build and Publish Pipeline
@@ -260,73 +262,15 @@ The architecture naturally extends in a few directions:
 - **Better engagement verification**: X posts currently use LLM-reported metrics (no free public JSON endpoint like Reddit has). If X's API becomes accessible, enrichment would close that accuracy gap.
 - **Smarter deduplication**: The Jaccard similarity on character trigrams works well for near-identical posts but misses semantic duplicates (same discussion, different words). An embedding-based approach could catch those.
 
-### Local Smoke Tests (Current vs Legacy)
+### Fixture-Only Confidence (Default)
 
-When we need confidence “in the wild”, we run local smoke tests against live APIs (current repo vs legacy repo) using the same topics and date window.
+We keep CI deterministic and fixture-only. No live runs, no cron, no API keys required.
 
-1. Choose 3–5 active topics (example: Bun 1.3 features, React Server Components security fixes, Node.js 24/25 release changes).
-2. Run current repo for each topic (same date window): `last-30-days "Bun 1.3 features" --emit=json --include-web`.
-3. Run legacy repo for the same topics and flags.
-4. Save outputs to `reports/smoke/current/` and `reports/smoke/legacy/`.
-5. Compare top‑10 overlap and any obvious ranking regressions.
+- CI gate: `bun run typecheck` and `bun test --recursive`.
+- Algorithm changes require baseline updates: `bun run update:baseline`.
+- `bun test --recursive` is the manual gate when you explicitly want a deterministic baseline delta.
 
-### Lock Runbook (Scenario Guide)
-
-Lock decisions follow a two-gate model:
-
-1. Deterministic gate:
-   - `bun run typecheck`
-   - `bun test --recursive`
-   - `bun run compare:legacy`
-2. Live reliability gate (for runtime/retrieval-impacting changes):
-   - `bun run eval:matrix --topicLimit=10 --repeats=1 --timeoutMs=45000`
-   - Optional stricter pass: `--repeats=3 --timeoutMs=60000`
-
-If Reddit collapses from found threads to final zero, run:
-
-- `bun run eval:reddit:debug --topic="React Server Components vulnerability" --days=30`
-
-Scenario expectations:
-
-- OpenAI/xAI model changes:
-  - Must pass deterministic + live reliability gates before lock.
-- Algorithm refactors (normalize/score/dedupe/date/trend):
-  - Must update baseline snapshots (`bun run update:baseline`) and pass both gates.
-- Reliability-only work (retry/cache/timeout/backoff):
-  - Must pass deterministic gate and show non-regressive matrix gates.
-- Telemetry/reporting-only refactors:
-  - Deterministic gate required; live gate recommended.
-
-Lock status of record is tracked in:
-
-- `docs/issues/2026-02-23-algorithm-winner-scorecard.md`
-
-### Live -> Fixture Transition (Confidence Without Ongoing Spend)
-
-Use a phased approach:
-
-1. Burn-in live reliability (short, time-boxed):
-   - Run live matrix nightly.
-   - Stop when we hit `7` consecutive passes or `10` total passes.
-   - Command: `bun run eval:matrix --topicLimit=10 --repeats=2 --timeoutMs=90000`
-2. Lock:
-   - Record winner and gate outcomes in scorecard.
-   - Freeze deterministic fixtures and baseline snapshots.
-3. Pivot to fixture-first nightly:
-   - Nightly CI runs deterministic checks only (`typecheck`, `test`, `compare:legacy`).
-   - No OpenAI/xAI keys required in the default nightly path.
-4. Keep low-cost live sentinel:
-   - Weekly (or manual), `2` topics, `1` repeat.
-   - Command: `bun run eval:live --repeats=1 --sources=reddit,x --topics="Bun runtime|TypeScript 5.9" --refresh --timeoutMs=90000`
-   - CI workflow: `reliability-weekly-sentinel.yml`
-
-Operational workflow split:
-
-- `reliability-nightly-fixture.yml`: daily fixture checks (no OpenAI/xAI cost).
-- `reliability-weekly-sentinel.yml`: weekly low-cost live sentinel.
-- `reliability-nightly.yml`: full live matrix reassessment, manual dispatch only.
-
-Re-open full live matrix only for model/prompt/algorithm changes, repeated sentinel failures, or explicit lock re-evaluation.
+Live smoke tests are still possible, but they’re strictly manual and only for investigations (not for CI, not scheduled).
 
 ---
 

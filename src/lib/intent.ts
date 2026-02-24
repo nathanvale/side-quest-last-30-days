@@ -1,4 +1,4 @@
-/** Rule-based intent classification and query policy for last-30-days. */
+/** Rule-based intent classification and query policy for wots CLI. */
 
 /**
  * Query type classification for search intent.

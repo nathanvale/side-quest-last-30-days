@@ -6,7 +6,7 @@ topic: algorithm-correctness
 # Algorithm Correctness Plan Brainstorm
 
 ## What We're Building
-We want a two-phase correctness program for the last-30-days algorithm. Phase 1 proves correctness of our algorithm with deterministic inputs. Phase 2 compares outcomes against the baseline repo the project was derived from. The goal is to lock behavior and detect drift when changes are made.
+We want a two-phase correctness program for the wots algorithm. Phase 1 proves correctness of our algorithm with deterministic inputs. Phase 2 compares outcomes against the baseline repo the project was derived from. The goal is to lock behavior and detect drift when changes are made.
 
 ## Why This Approach
 Use a hybrid strategy: **Golden Snapshot + Contract Tests**. Snapshots give end-to-end confidence with real-world inputs, while contract tests validate the math in isolation. This balances rigor and stability without relying on flaky live data.

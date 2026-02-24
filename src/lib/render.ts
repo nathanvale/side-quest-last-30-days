@@ -1,4 +1,4 @@
-/** Output rendering for last-30-days skill. */
+/** Output rendering for wots CLI. */
 
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type { Report } from './schema.js'
 import { reportToDict } from './schema.js'
 
-const OUTPUT_DIR = join(homedir(), '.local', 'share', 'last-30-days', 'out')
+const OUTPUT_DIR = join(homedir(), '.local', 'share', 'wots', 'out')
 
 /** Assess how much data is actually from the configured date range. */
 function assessDataFreshness(report: Report) {
@@ -79,7 +79,7 @@ export function renderCompact(
 			'- `OPENAI_API_KEY` → Reddit threads with real upvotes & comments',
 		)
 		lines.push('- `XAI_API_KEY` → X posts with real likes & reposts')
-		lines.push('- Edit `~/.config/last-30-days/.env` to add keys')
+		lines.push('- Edit `~/.config/wots/.env` to add keys')
 		lines.push('---')
 		lines.push('')
 	}
@@ -459,10 +459,7 @@ export function writeOutputs(
 		JSON.stringify(reportToDict(report), null, 2),
 	)
 	writeFileSync(join(dir, 'report.md'), renderFullReport(report))
-	writeFileSync(
-		join(dir, 'last-30-days.context.md'),
-		renderContextSnippet(report),
-	)
+	writeFileSync(join(dir, 'wots.context.md'), renderContextSnippet(report))
 
 	if (rawOpenai) {
 		writeFileSync(
@@ -483,5 +480,5 @@ export function writeOutputs(
 
 /** Get path to context file. */
 export function getContextPath(outdir?: string): string {
-	return join(outdir || OUTPUT_DIR, 'last-30-days.context.md')
+	return join(outdir || OUTPUT_DIR, 'wots.context.md')
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { execSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -351,9 +352,8 @@ const output = buildBaseline()
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const outputDir = join(scriptDir, '..', '..', 'fixtures', 'algorithm-baseline')
 mkdirSync(outputDir, { recursive: true })
-writeFileSync(
-	join(outputDir, 'v1.json'),
-	`${JSON.stringify(output, null, 2)}\n`,
-)
+const outPath = join(outputDir, 'v1.json')
+writeFileSync(outPath, `${JSON.stringify(output, null, 2)}\n`)
+execSync(`bunx biome format --write ${outPath}`, { stdio: 'ignore' })
 
 process.stdout.write('Algorithm baseline fixtures updated.\n')

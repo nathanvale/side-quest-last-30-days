@@ -232,7 +232,7 @@ export const runCompletedEnvelopeSchema = z
 		id: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
 		timestamp: z.string().datetime({ offset: true }),
 		type: z.literal('l30d.run.completed'),
-		app: z.literal('last-30-days'),
+		app: z.literal('wots'),
 		appRoot: z.string().min(1),
 		source: z.literal('cli'),
 		correlationId: z.string().regex(/^[a-f0-9]{8}$|^[A-Za-z0-9_-]{8,64}$/),

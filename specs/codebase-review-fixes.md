@@ -1,7 +1,7 @@
 # Plan: Codebase Review Critical Fixes
 
 ## Task Description
-Implement fixes for 9 critical issues identified across a 3-pass staff engineer review (Architect, Skeptic, DX Advocate) of the @side-quest/last-30-days codebase. Issues span data integrity, CLI contract safety, runtime reliability, and testing fidelity.
+Implement fixes for 9 critical issues identified across a 3-pass staff engineer review (Architect, Skeptic, DX Advocate) of the @side-quest/word-on-the-street codebase. Issues span data integrity, CLI contract safety, runtime reliability, and testing fidelity.
 
 ## Objective
 Fix all 9 critical issues so the codebase produces correct, predictable output across all CLI invocations -- no NaN scores, no JSON corruption, no silent arg misinterpretation, no crashes from file permissions.
@@ -248,7 +248,7 @@ Fix mock mode to use `validateSources()`, add web mode documentation. These ensu
    ```typescript
    } else if (arg.startsWith('--')) {
      process.stderr.write(`Error: Unknown flag: ${arg}\n`)
-     process.stderr.write('Run last-30-days --help for usage.\n')
+     process.stderr.write('Run wots --help for usage.\n')
      process.exit(1)
    } else if (!arg.startsWith('-')) {
      topic = topic ? `${topic} ${arg}` : arg
@@ -299,7 +299,7 @@ Fix mock mode to use `validateSources()`, add web mode documentation. These ensu
 - **Agent Type**: general-purpose
 - **Model**: sonnet
 - **Parallel**: false
-- **Context**: `cli.ts:810` calls `writeOutputs()` before stdout emit. If `~/.local/share/last-30-days/out/` is unwritable (EPERM), the entire run crashes with no stdout output.
+- **Context**: `cli.ts:810` calls `writeOutputs()` before stdout emit. If `~/.local/share/wots/out/` is unwritable (EPERM), the entire run crashes with no stdout output.
 
 **Changes to `src/cli.ts`:**
 - Line 810: Wrap `writeOutputs()` in try/catch:
@@ -467,7 +467,7 @@ Fix mock mode to use `validateSources()`, add web mode documentation. These ensu
 - Add a module-level JSDoc comment explaining the handoff pattern:
   ```typescript
   /**
-   * WebSearch module for last-30-days skill.
+   * WebSearch module for wots skill.
    *
    * ARCHITECTURE NOTE: This module provides parsing and normalization for web
    * search results, but the CLI does NOT call these functions directly. Web
@@ -525,7 +525,7 @@ No tests needed for documentation-only changes.
 3. `--emit json` (space-separated) works identically to `--emit=json`
 4. Unknown CLI flags (`--foo`) exit 1 with descriptive error
 5. Invalid enum values (`--emit=foo`, `--sources=foo`) exit 1 with descriptive error
-6. CLI produces stdout output even when `~/.local/share/` is unwritable
+6. CLI produces stdout output even when `~/.local/share/wots/` is unwritable
 7. `isModelAccessError()` handles 404 status codes
 8. Stale raw output files are cleaned at the start of each run
 9. Mock mode runs `validateSources()` so `--include-web` works correctly

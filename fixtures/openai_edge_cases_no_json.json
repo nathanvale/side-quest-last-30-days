@@ -1,0 +1,17 @@
+{
+	"id": "resp_edge_cases_no_json",
+	"object": "response",
+	"created": 1706140800,
+	"model": "gpt-4o-search-preview",
+	"output": [
+		{
+			"type": "message",
+			"content": [
+				{
+					"type": "output_text",
+					"text": "No JSON payload in this response."
+				}
+			]
+		}
+	]
+}

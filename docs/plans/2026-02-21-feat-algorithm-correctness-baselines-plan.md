@@ -9,7 +9,7 @@ origin: docs/brainstorms/2026-02-21-algorithm-correctness-brainstorm.md
 # Algorithm Correctness Baselines
 
 ## Overview
-Establish a two-phase correctness program for the last-30-days algorithm. Phase 1 proves correctness with deterministic inputs and golden snapshots. Phase 2 compares outputs against the baseline repo the project was derived from. This plan hardens the repo by locking algorithm behavior and detecting drift in ranking or scoring. (see brainstorm: docs/brainstorms/2026-02-21-algorithm-correctness-brainstorm.md)
+Establish a two-phase correctness program for the wots algorithm. Phase 1 proves correctness with deterministic inputs and golden snapshots. Phase 2 compares outputs against the baseline repo the project was derived from. This plan hardens the repo by locking algorithm behavior and detecting drift in ranking or scoring. (see brainstorm: docs/brainstorms/2026-02-21-algorithm-correctness-brainstorm.md)
 
 ## Problem Statement / Motivation
 The scoring and dedupe pipeline is opinionated and central to product value. Without a deterministic baseline, subtle changes can drift ranking or scoring without being noticed. We need a repeatable, CI-enforced approach that signals when algorithm behavior changes and forces explicit baseline updates. (see brainstorm: docs/brainstorms/2026-02-21-algorithm-correctness-brainstorm.md)
@@ -58,7 +58,7 @@ Then review the diff in fixtures and commit.
 ### User Flow Overview
 1. Developer changes algorithm code, runs `bun run update:baseline`, reviews snapshot diffs, commits snapshots.
 2. Developer changes algorithm code without updating baselines, CI fails with a clear error and instructions.
-3. Baseline comparison against the legacy repo is run on a schedule or manual command, producing a report of score/rank deltas.
+3. Baseline comparison against stored fixtures is run on a schedule or manual command, producing a report of score/rank deltas.
 4. Developer updates baseline size or tolerance values, revalidates via tests, and commits updated configuration.
 
 ### Flow Permutations Matrix
@@ -76,7 +76,7 @@ Then review the diff in fixtures and commit.
 ### Critical Questions Requiring Clarification
 1. Critical: What numeric tolerance should score deltas allow, and is it absolute or percentage-based?
 2. Critical: What dataset size is the minimum “realistic” snapshot set (topic count, source mix)?
-3. Important: Should baseline comparison against the old repo run in CI or as a scheduled job?
+3. Important: Should baseline comparison run in CI or as a scheduled job?
 4. Nice-to-have: What is the threshold for moving fixtures to external storage and how to document that migration?
 
 ### Recommended Next Steps
@@ -107,7 +107,7 @@ Then review the diff in fixtures and commit.
 ### Phase 1: Baseline Design
 - Define baseline dataset scope and tolerance policy.
 - Identify algorithm-affecting files to include in drift detection.
-- Decide baseline comparison strategy against legacy repo.
+- Decide baseline comparison strategy against stored fixtures.
 
 ### Phase 2: Baseline Fixtures and Tests
 - Capture real-world inputs and outputs into `fixtures/`.
@@ -119,9 +119,6 @@ Then review the diff in fixtures and commit.
 - Add CI guard that fails on algorithm changes without snapshot updates.
 - Document the workflow in `README.md` or `EXPLAIN.md`.
 
-### Phase 4: Legacy Repo Comparison
-- Implement a comparison harness that runs both repos on the same fixtures and outputs deltas.
-- Execution: scheduled weekly GitHub Action plus manual `bun run compare:legacy`.
 
 ## Alternative Approaches Considered
 - Live end-to-end tests only: rejected due to flakiness and rate-limit risk.

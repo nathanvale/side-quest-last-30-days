@@ -1,4 +1,4 @@
-/** Popularity-aware scoring for last-30-days skill. */
+/** Popularity-aware scoring for wots CLI. */
 
 import { recencyScore } from './dates.js'
 import type { IntentWeights } from './intent.js'

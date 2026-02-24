@@ -1,6 +1,17 @@
 import { parseYtDlpJsonLines } from '../lib/youtube.js'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
+const YT_TIMEOUT_MS_BY_DEPTH: Record<string, number> = {
+	quick: 15_000,
+	normal: 30_000,
+	deep: 60_000,
+}
+
+const YT_RESULTS_BY_DEPTH: Record<string, number> = {
+	quick: 5,
+	normal: 10,
+	deep: 20,
+}
 
 /** Clamp lookback days to a safe positive integer window. */
 function clampLookbackDays(days: number): number {
@@ -22,8 +33,8 @@ function formatYtDate(date: Date): string {
 /**
  * Build yt-dlp args for time-windowed YouTube search.
  *
- * Uses ytsearchdate to bias recent uploads and --dateafter to enforce
- * the requested lookback window.
+ * Uses ytsearch with --dateafter to enforce the requested lookback window.
+ * (ytsearchdate is broken in yt-dlp 2026.02.21+, so we use ytsearch instead.)
  */
 export function buildYouTubeSearchArgs(
 	topic: string,
@@ -31,10 +42,10 @@ export function buildYouTubeSearchArgs(
 	depth: string,
 	now: Date = new Date(),
 ): string[] {
-	const maxResults = depth === 'quick' ? 5 : depth === 'deep' ? 20 : 10
+	const maxResults = YT_RESULTS_BY_DEPTH[depth] ?? YT_RESULTS_BY_DEPTH.normal
 	const lookbackDays = clampLookbackDays(days)
 	const dateAfter = new Date(now.getTime() - lookbackDays * MS_PER_DAY)
-	const query = `ytsearchdate${maxResults}:${topic}`
+	const query = `ytsearch${maxResults}:${topic}`
 
 	return [
 		'yt-dlp',
@@ -44,6 +55,20 @@ export function buildYouTubeSearchArgs(
 		formatYtDate(dateAfter),
 		query,
 	]
+}
+
+/** Build yt-dlp args for fetching full metadata for a list of video IDs. */
+function buildYouTubeMetadataArgs(ids: string[]): string[] {
+	const urls = ids.map((id) => `https://www.youtube.com/watch?v=${id}`)
+	return ['yt-dlp', '--dump-json', '--no-playlist', ...urls]
+}
+
+function getDepthTimeoutMs(depth: string): number {
+	return YT_TIMEOUT_MS_BY_DEPTH[depth] ?? 30_000
+}
+
+function getDepthMaxResults(depth: string): number {
+	return YT_RESULTS_BY_DEPTH[depth] ?? 10
 }
 
 /** Check if yt-dlp is available in PATH. */
@@ -64,8 +89,10 @@ export async function searchYouTube(
 	days: number,
 	depth: string,
 ): Promise<Record<string, unknown>[]> {
+	const start = Date.now()
 	const args = buildYouTubeSearchArgs(topic, days, depth)
-	const result = Bun.spawnSync(args, { timeout: 60_000 })
+	const timeoutMs = getDepthTimeoutMs(depth)
+	const result = Bun.spawnSync(args, { timeout: timeoutMs })
 
 	if (result.exitCode !== 0) {
 		const stderr = result.stderr.toString().trim()
@@ -80,5 +107,38 @@ export async function searchYouTube(
 		throw new Error(`yt-dlp search failed (${details})`)
 	}
 
-	return parseYtDlpJsonLines(result.stdout.toString())
+	const flatResults = parseYtDlpJsonLines(result.stdout.toString())
+	const maxResults = getDepthMaxResults(depth)
+	const ids = flatResults
+		.map((item) => String(item.id ?? ''))
+		.filter(Boolean)
+		.slice(0, maxResults)
+
+	// If we have no IDs or no remaining time budget, return flat results.
+	const elapsed = Date.now() - start
+	const remaining = timeoutMs - elapsed
+	if (ids.length === 0 || remaining < 2000) {
+		return flatResults
+	}
+
+	const metadataArgs = buildYouTubeMetadataArgs(ids)
+	const metadataResult = Bun.spawnSync(metadataArgs, { timeout: remaining })
+	if (metadataResult.exitCode !== 0) {
+		return flatResults
+	}
+
+	const fullResults = parseYtDlpJsonLines(metadataResult.stdout.toString())
+	if (fullResults.length === 0) {
+		return flatResults
+	}
+
+	const fullById = new Map(
+		fullResults.map((item) => [String(item.id ?? ''), item]),
+	)
+	const merged = flatResults.map((item) => {
+		const id = String(item.id ?? '')
+		const full = fullById.get(id)
+		return full ? { ...item, ...full } : item
+	})
+	return merged
 }

@@ -1,10 +1,10 @@
-/** Environment and API key management for last-30-days skill. */
+/** Environment and API key management for wots CLI. */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-const CONFIG_DIR = join(homedir(), '.config', 'last-30-days')
+const CONFIG_DIR = join(homedir(), '.config', 'wots')
 const CONFIG_FILE = join(CONFIG_DIR, '.env')
 
 /** Load environment variables from a file. */
@@ -36,21 +36,36 @@ function loadEnvFile(path: string): Record<string, string> {
 	return env
 }
 
-/** Load configuration from ~/.config/last-30-days/.env and environment. */
+/** Load configuration from ~/.config/wots/.env and environment. */
 export function getConfig(): Record<string, string | null> {
 	const fileEnv = loadEnvFile(CONFIG_FILE)
+	const normalize = (value?: string | null): string | null => {
+		if (value == null) return null
+		const trimmed = value.trim()
+		return trimmed.length > 0 ? trimmed : null
+	}
 
 	return {
-		OPENAI_API_KEY:
-			process.env.OPENAI_API_KEY ?? fileEnv.OPENAI_API_KEY ?? null,
-		XAI_API_KEY: process.env.XAI_API_KEY ?? fileEnv.XAI_API_KEY ?? null,
+		OPENAI_API_KEY: normalize(
+			process.env.OPENAI_API_KEY ?? fileEnv.OPENAI_API_KEY,
+		),
+		XAI_API_KEY: normalize(process.env.XAI_API_KEY ?? fileEnv.XAI_API_KEY),
 		OPENAI_MODEL_POLICY:
-			process.env.OPENAI_MODEL_POLICY ?? fileEnv.OPENAI_MODEL_POLICY ?? 'auto',
+			normalize(process.env.OPENAI_MODEL_POLICY) ??
+			normalize(fileEnv.OPENAI_MODEL_POLICY) ??
+			'pinned',
 		OPENAI_MODEL_PIN:
-			process.env.OPENAI_MODEL_PIN ?? fileEnv.OPENAI_MODEL_PIN ?? null,
+			normalize(process.env.OPENAI_MODEL_PIN) ??
+			normalize(fileEnv.OPENAI_MODEL_PIN) ??
+			'gpt-4o-search-preview',
 		XAI_MODEL_POLICY:
-			process.env.XAI_MODEL_POLICY ?? fileEnv.XAI_MODEL_POLICY ?? 'latest',
-		XAI_MODEL_PIN: process.env.XAI_MODEL_PIN ?? fileEnv.XAI_MODEL_PIN ?? null,
+			normalize(process.env.XAI_MODEL_POLICY) ??
+			normalize(fileEnv.XAI_MODEL_POLICY) ??
+			'latest',
+		XAI_MODEL_PIN:
+			normalize(process.env.XAI_MODEL_PIN) ??
+			normalize(fileEnv.XAI_MODEL_PIN) ??
+			null,
 	}
 }
 
@@ -102,7 +117,7 @@ export function validateSources(
 		if (requested === 'auto' || requested === 'web') return ['web', null]
 		return [
 			'web',
-			'No API keys configured. Using WebSearch fallback. Add keys to ~/.config/last-30-days/.env for Reddit/X.',
+			'No API keys configured. Using WebSearch fallback. Add keys to ~/.config/wots/.env for Reddit/X.',
 		]
 	}
 

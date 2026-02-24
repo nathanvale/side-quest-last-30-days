@@ -2,7 +2,7 @@
  * SQLite persistence layer for watchlist topics and run history.
  *
  * Uses Bun's built-in `bun:sqlite` -- no external dependency required.
- * The default DB lives at `~/.local/share/last-30-days/research.db`.
+ * The default DB lives at `~/.local/share/wots/research.db`.
  * Pass `:memory:` to `initDb` for isolated test instances.
  */
 
@@ -19,7 +19,7 @@ let _db: Database | null = null
  * Resolves `~` via `os.homedir()`.
  */
 export function getDbPath(): string {
-	return join(homedir(), '.local', 'share', 'last-30-days', 'research.db')
+	return join(homedir(), '.local', 'share', 'wots', 'research.db')
 }
 
 /**

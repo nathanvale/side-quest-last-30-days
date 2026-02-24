@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * last-30-days CLI - Research a topic from the last 30 days on Reddit + X.
+ * wots CLI - Research a topic across Reddit, X, and web.
  *
  * Usage:
- *   last-30-days <topic> [options]
+ *   wots <topic> [options]
  *
  * Options:
  *   --mock           Use fixtures instead of real API calls
@@ -12,6 +12,8 @@
  *   --days=N         Lookback window in days (default: 30, range: 1-365)
  *   --quick          Faster research with fewer sources
  *   --deep           Comprehensive research with more sources
+ *   --fast           Pin OpenAI model to gpt-4o for speed
+ *   --cheap          Pin OpenAI model to gpt-4o-mini-search-preview for cost
  *   --debug          Enable verbose debug logging
  *   --include-web    Include general web search alongside Reddit/X
  *   --strategy=MODE  Search strategy: single|two-phase (default: single)
@@ -24,11 +26,14 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type {
+	BriefingCommand,
 	IntentQueryType as QueryType,
 	RedditItem,
+	SearchCommand,
+	WatchCommand,
 	XItem,
 	YouTubeItem,
 } from './index.js'
@@ -37,6 +42,8 @@ import {
 	acquireCacheLock,
 	// watchlist
 	addTopic,
+	// cli-error
+	CliError,
 	// intent
 	classifyIntent,
 	// trend
@@ -47,6 +54,12 @@ import {
 	dedupeReddit,
 	dedupeX,
 	dedupeYouTube,
+	// exit-codes
+	EXIT_CONFLICT,
+	EXIT_INTERRUPTED,
+	EXIT_RUNTIME,
+	EXIT_UNAUTHORIZED,
+	EXIT_USAGE,
 	// reddit-enrich
 	enrichRedditItem,
 	// openai-reddit
@@ -71,6 +84,8 @@ import {
 	getModels,
 	getSearchTTL,
 	getSourceCacheKey,
+	// help
+	isValidHelpTopic,
 	// youtube
 	isYtDlpAvailable,
 	listTopics,
@@ -81,11 +96,15 @@ import {
 	normalizeYouTubeItems,
 	// ui
 	ProgressDisplay,
+	// parse-args
+	parseCliArgs,
 	parseRedditResponse,
 	// websearch (none currently used directly)
 	// xai-x
 	parseXResponse,
 	parseYouTubeResults,
+	// field-projection
+	projectReport,
 	// http
 	RateLimitError,
 	REDDIT_PROMPT_VERSION,
@@ -95,7 +114,12 @@ import {
 	renderCompact,
 	renderContextSnippet,
 	renderFullReport,
+	renderHelp,
 	reportToDict,
+	// output
+	reportToJsonl,
+	resolveErrorContext,
+	resolveOutputArgs,
 	saveCache,
 	// score
 	scoreRedditItems,
@@ -106,6 +130,9 @@ import {
 	searchYouTube,
 	sortItems,
 	validateSources,
+	wrapData,
+	wrapReport,
+	writeError,
 	writeOutputs,
 	X_PROMPT_VERSION,
 } from './index.js'
@@ -124,256 +151,15 @@ function loadFixture(name: string): Record<string, unknown> {
 	}
 }
 
-/** Print usage information and exit. */
-function showHelp(): never {
-	const text = `last-30-days - Research any topic from the last 30 days across Reddit, X, and web.
-
-Usage:
-  last-30-days <topic> [options]
-
-Options:
-  --emit=MODE      Output mode (default: compact)
-                     compact  Markdown summary for Claude to synthesize
-                     json     Full report as JSON
-                     md       Full markdown report
-                     context  Reusable context snippet
-                     path     Print path to context file
-  --sources=MODE   Source selection (default: auto)
-                     auto     Use all available API keys
-                     reddit   Reddit only (requires OPENAI_API_KEY)
-                     x        X/Twitter only (requires XAI_API_KEY)
-                     both     Reddit + X (requires both keys)
-  --days=N         Lookback window in days (default: 30, range: 1-365)
-  --quick          Faster research with fewer results
-  --deep           Comprehensive research with more results
-  --include-web    Include general web search alongside Reddit/X
-  --include-youtube Include YouTube video search (requires yt-dlp)
-  --refresh        Bypass cache reads and force fresh search
-  --no-cache       Disable cache reads and writes
-  --outdir=PATH    Write output files to PATH instead of default location
-  --strategy=MODE  Search strategy (default: single)
-                     single     Phase 1 only (backward-compatible)
-                     two-phase  Phase 1 + entity-driven supplemental
-  --phase2-budget=N  Max supplemental queries per source (default: 5, range: 1-50)
-  --query-type=TYPE  Query intent (default: auto)
-                       auto            Auto-detect from topic
-                       prompting       Optimized for how-to/technique queries
-                       recommendations Best-of/comparison queries
-                       news            Breaking/latest queries
-                       general         Default balanced weights
-  --mock           Use fixture data instead of real API calls
-  --debug          Enable verbose debug logging
-  -h, --help       Show this help message
-
-Config:
-  API keys are loaded from environment variables or ~/.config/last-30-days/.env
-    OPENAI_API_KEY   Required for Reddit search (via OpenAI Responses API)
-    XAI_API_KEY      Required for X search (via xAI Responses API)
-
-Examples:
-  last-30-days "Claude Code"
-  last-30-days "React Server Components" --deep --emit=json
-  last-30-days "Bun 1.2" --sources=reddit --include-web
-  last-30-days "Bun 1.2" --days=7 --emit=json
-
-Watch subcommands:
-  last-30-days watch add "topic" [--every=daily|weekly]
-                    Add a topic to your watchlist
-  last-30-days watch list
-                    List all watched topics
-  last-30-days watch remove "topic"
-                    Remove a topic from your watchlist
-  last-30-days watch history "topic" [--limit=10]
-                    Show run history for a topic
-
-Briefing subcommands:
-  last-30-days briefing "topic" [--period=daily|weekly]
-                    Generate a briefing from watchlist run history`
-
-	console.log(text)
-	process.exit(0)
-}
-
-/** Parse days flag value as a base-10 integer. */
-function parseDaysValue(value: string): number {
-	if (!/^\d+$/.test(value)) return Number.NaN
-	return Number(value)
-}
-
-/** Parse CLI arguments. */
-function parseArgs(args: string[]) {
-	let topic = ''
-	let mock = false
-	let emit = 'compact'
-	let sources = 'auto'
-	let quick = false
-	let deep = false
-	let debug = false
-	let includeWeb = false
-	let includeYoutube = false
-	let refresh = false
-	let noCache = false
-	let days = 30
-	let outdir = ''
-	let strategy = 'single'
-	let phase2Budget = 5
-	let queryType = 'auto'
-
-	for (let i = 0; i < args.length; i++) {
-		const arg = args[i]!
-		if (arg === '--help' || arg === '-h') {
-			showHelp()
-		} else if (arg === '--mock') {
-			mock = true
-		} else if (arg.startsWith('--emit=')) {
-			emit = arg.slice('--emit='.length)
-		} else if (arg === '--emit') {
-			const value = args[i + 1]
-			if (value && !value.startsWith('-')) {
-				emit = value
-				i += 1
-			}
-		} else if (arg.startsWith('--sources=')) {
-			sources = arg.slice('--sources='.length)
-		} else if (arg === '--sources') {
-			const value = args[i + 1]
-			if (value && !value.startsWith('-')) {
-				sources = value
-				i += 1
-			}
-		} else if (arg.startsWith('--days=')) {
-			days = parseDaysValue(arg.slice('--days='.length))
-		} else if (arg === '--days') {
-			const value = args[i + 1]
-			if (!value || value.startsWith('-')) {
-				days = Number.NaN
-			} else {
-				days = parseDaysValue(value)
-				i += 1
-			}
-		} else if (arg === '--quick') {
-			quick = true
-		} else if (arg === '--deep') {
-			deep = true
-		} else if (arg === '--debug') {
-			debug = true
-		} else if (arg === '--include-web') {
-			includeWeb = true
-		} else if (arg === '--include-youtube') {
-			includeYoutube = true
-		} else if (arg === '--refresh') {
-			refresh = true
-		} else if (arg === '--no-cache') {
-			noCache = true
-		} else if (arg.startsWith('--outdir=')) {
-			outdir = arg.slice('--outdir='.length)
-		} else if (arg === '--outdir') {
-			const value = args[i + 1]
-			if (value && !value.startsWith('-')) {
-				outdir = value
-				i += 1
-			}
-		} else if (arg.startsWith('--strategy=')) {
-			strategy = arg.slice('--strategy='.length)
-		} else if (arg === '--strategy') {
-			const value = args[i + 1]
-			if (value && !value.startsWith('-')) {
-				strategy = value
-				i += 1
-			}
-		} else if (arg.startsWith('--phase2-budget=')) {
-			phase2Budget = Number(arg.slice('--phase2-budget='.length))
-		} else if (arg === '--phase2-budget') {
-			const value = args[i + 1]
-			if (!value || value.startsWith('-')) {
-				phase2Budget = Number.NaN
-			} else {
-				phase2Budget = Number(value)
-				i += 1
-			}
-		} else if (arg.startsWith('--query-type=')) {
-			queryType = arg.slice('--query-type='.length)
-		} else if (arg === '--query-type') {
-			const value = args[i + 1]
-			if (value && !value.startsWith('-')) {
-				queryType = value
-				i += 1
-			}
-		} else if (arg.startsWith('--')) {
-			process.stderr.write(`Error: Unknown flag: ${arg}\n`)
-			process.stderr.write('Run last-30-days --help for usage.\n')
-			process.exit(1)
-		} else if (!arg.startsWith('-')) {
-			topic = topic ? `${topic} ${arg}` : arg
-		}
-	}
-
-	const validEmits = ['compact', 'json', 'md', 'context', 'path']
-	if (!validEmits.includes(emit)) {
-		process.stderr.write(
-			`Error: Invalid --emit value: "${emit}". Valid: ${validEmits.join(', ')}\n`,
-		)
-		process.exit(1)
-	}
-
-	const validSources = ['auto', 'reddit', 'x', 'both', 'web']
-	if (!validSources.includes(sources)) {
-		process.stderr.write(
-			`Error: Invalid --sources value: "${sources}". Valid: ${validSources.join(', ')}\n`,
-		)
-		process.exit(1)
-	}
-
-	const validStrategies = ['single', 'two-phase']
-	if (!validStrategies.includes(strategy)) {
-		process.stderr.write(
-			`Error: Invalid --strategy value: "${strategy}". Valid: ${validStrategies.join(', ')}\n`,
-		)
-		process.exit(1)
-	}
-
-	if (
-		!Number.isInteger(phase2Budget) ||
-		phase2Budget < 1 ||
-		phase2Budget > 50
-	) {
-		process.stderr.write(
-			'Error: --phase2-budget must be an integer between 1 and 50.\n',
-		)
-		process.exit(1)
-	}
-
-	const validQueryTypes = [
-		'auto',
-		'prompting',
-		'recommendations',
-		'news',
-		'general',
-	]
-	if (!validQueryTypes.includes(queryType)) {
-		process.stderr.write(
-			`Error: Invalid --query-type value: "${queryType}". Valid: ${validQueryTypes.join(', ')}\n`,
-		)
-		process.exit(1)
-	}
-
-	return {
-		topic,
-		mock,
-		emit,
-		sources,
-		quick,
-		deep,
-		debug,
-		includeWeb,
-		includeYoutube,
-		refresh,
-		noCache,
-		days,
-		outdir,
-		strategy,
-		phase2Budget,
-		queryType,
+/** Read package version from package.json. */
+function getPackageVersion(): string {
+	try {
+		const pkgPath = new URL('../package.json', import.meta.url)
+		const raw = readFileSync(pkgPath, 'utf-8')
+		const pkg = JSON.parse(raw) as { version?: string }
+		return pkg.version ?? 'unknown'
+	} catch {
+		return 'unknown'
 	}
 }
 
@@ -804,196 +590,88 @@ function watchHistory(topic: string, limit: number): void {
 }
 
 /**
- * Handles the `briefing` subcommand.
+ * Write a JSON envelope for watch/briefing subcommands.
  *
- * Usage: last-30-days briefing "topic" [--period=daily|weekly]
+ * @param data   - Payload to wrap.
+ * @param pretty - Pretty-print JSON when true.
+ */
+function writeEnvelope(data: Record<string, unknown>, pretty: boolean): void {
+	const envelope = wrapData(data)
+	process.stdout.write(`${JSON.stringify(envelope, null, pretty ? 2 : 0)}\n`)
+}
+
+/**
+ * Handles the `briefing` subcommand.
  *
  * Fetches run history for the topic from the watchlist store, generates a
  * briefing with optional delta detection, and prints it as markdown to stdout.
  *
- * @param args - Remaining argv after the `briefing` token.
+ * @param cmd - Parsed briefing command.
  */
-function handleBriefingCommand(args: string[]): void {
-	let topic = ''
-	let period: 'daily' | 'weekly' = 'daily'
-
-	for (const arg of args) {
-		if (arg.startsWith('--period=')) {
-			const val = arg.slice('--period='.length)
-			if (val === 'daily' || val === 'weekly') {
-				period = val
-			} else {
-				process.stderr.write(
-					`Error: Invalid --period value: "${val}". Valid: daily, weekly\n`,
-				)
-				process.exit(1)
-			}
-		} else if (!arg.startsWith('-')) {
-			topic = topic ? `${topic} ${arg}` : arg
-		} else {
-			process.stderr.write(`Error: Unknown briefing flag: "${arg}"\n`)
-			process.stderr.write(
-				'Usage: last-30-days briefing "topic" [--period=daily|weekly]\n',
-			)
-			process.exit(1)
-		}
-	}
-
-	if (!topic) {
-		process.stderr.write('Error: briefing requires a topic.\n')
-		process.stderr.write(
-			'Usage: last-30-days briefing "topic" [--period=daily|weekly]\n',
-		)
-		process.exit(1)
-	}
-
+function handleBriefingCommand(cmd: BriefingCommand): void {
 	// Fetch enough history for the period: daily=2 runs, weekly=8 runs.
-	const limit = period === 'weekly' ? 8 : 2
-	const runs = getHistory(topic, limit)
+	const limit = cmd.period === 'weekly' ? 8 : 2
+	const runs = getHistory(cmd.topic, limit)
 	// Keep core briefing logic time-free by creating timestamp at the CLI boundary.
 	const generatedAt = new Date().toISOString()
-	const briefing = generateBriefing(topic, runs, period, generatedAt)
+	const briefing = generateBriefing(cmd.topic, runs, cmd.period, generatedAt)
+	if (cmd.json || cmd.jsonl) {
+		writeEnvelope({ briefing }, cmd.json && !cmd.jsonl)
+		return
+	}
 	process.stdout.write(renderBriefingMarkdown(briefing))
 	process.stdout.write('\n')
 }
 
 /**
- * Routes `watch` subcommands: add, list, remove, history.
+ * Routes `watch` subcommands using the pre-parsed WatchCommand.
  *
- * @param args - Remaining argv after the `watch` token.
+ * @param cmd - Parsed watch command with subcommand, topic, and options.
  */
-function handleWatchCommand(args: string[]): void {
-	const sub = args[0]
-
-	if (sub === 'add') {
-		// Find the topic (first non-flag arg after 'add')
-		const remaining = args.slice(1)
-		let topic = ''
-		let schedule: string | undefined
-		let scheduleProvided = false
-
-		for (let i = 0; i < remaining.length; i++) {
-			const arg = remaining[i]!
-			if (arg.startsWith('--every=')) {
-				scheduleProvided = true
-				schedule = arg.slice('--every='.length)
-			} else if (arg === '--every') {
-				const value = remaining[i + 1]
-				scheduleProvided = true
-				if (!value || value.startsWith('-')) {
-					schedule = ''
-				} else {
-					schedule = value
-					i += 1
-				}
-			} else if (arg.startsWith('--')) {
-				process.stderr.write(`Error: Unknown watch add flag: "${arg}"\n`)
-				process.stderr.write(
-					'Usage: last-30-days watch add "topic" [--every=daily|weekly]\n',
-				)
-				process.exit(1)
-			} else if (!arg.startsWith('-')) {
-				topic = topic ? `${topic} ${arg}` : arg
-			}
-		}
-
-		if (!topic) {
-			process.stderr.write('Error: watch add requires a topic.\n')
-			process.stderr.write(
-				'Usage: last-30-days watch add "topic" [--every=daily|weekly]\n',
+function handleWatchCommand(cmd: WatchCommand): void {
+	const wantsJson = cmd.json || cmd.jsonl
+	if (cmd.subcommand === 'add') {
+		if (wantsJson) {
+			addTopic(cmd.topic, cmd.schedule)
+			writeEnvelope(
+				{
+					action: 'watch.add',
+					topic: cmd.topic,
+					schedule: cmd.schedule ?? null,
+				},
+				cmd.json && !cmd.jsonl,
 			)
-			process.exit(1)
+			return
 		}
-
-		const validSchedules = ['daily', 'weekly']
-		if (scheduleProvided && !validSchedules.includes(schedule ?? '')) {
-			process.stderr.write(
-				`Error: Invalid --every value: "${schedule}". Valid: daily, weekly\n`,
-			)
-			process.exit(1)
+		watchAdd(cmd.topic, cmd.schedule)
+	} else if (cmd.subcommand === 'list') {
+		if (wantsJson) {
+			const topics = listTopics()
+			writeEnvelope({ action: 'watch.list', topics }, cmd.json && !cmd.jsonl)
+			return
 		}
-
-		watchAdd(topic, schedule)
-		return
-	}
-
-	if (sub === 'list') {
 		watchList()
-		return
-	}
-
-	if (sub === 'remove') {
-		const remaining = args.slice(1)
-		let topic = ''
-		for (const arg of remaining) {
-			if (!arg.startsWith('-')) {
-				topic = topic ? `${topic} ${arg}` : arg
-			}
-		}
-		if (!topic) {
-			process.stderr.write('Error: watch remove requires a topic.\n')
-			process.stderr.write('Usage: last-30-days watch remove "topic"\n')
-			process.exit(1)
-		}
-		watchRemove(topic)
-		return
-	}
-
-	if (sub === 'history') {
-		const remaining = args.slice(1)
-		let topic = ''
-		let limit = 10
-
-		const failLimit = (): never => {
-			process.stderr.write('Error: --limit must be a positive integer.\n')
-			process.stderr.write(
-				'Usage: last-30-days watch history "topic" [--limit=10|--limit 10]\n',
+	} else if (cmd.subcommand === 'remove') {
+		if (wantsJson) {
+			const removed = removeTopic(cmd.topic)
+			writeEnvelope(
+				{ action: 'watch.remove', topic: cmd.topic, removed },
+				cmd.json && !cmd.jsonl,
 			)
-			process.exit(1)
+			return
 		}
-
-		for (let i = 0; i < remaining.length; i++) {
-			const arg = remaining[i]!
-			if (arg.startsWith('--limit=')) {
-				const n = Number(arg.slice('--limit='.length))
-				if (!Number.isInteger(n) || n < 1) failLimit()
-				limit = n
-			} else if (arg === '--limit') {
-				const value = remaining[i + 1]
-				if (!value || value.startsWith('-')) failLimit()
-				const n = Number(value)
-				if (!Number.isInteger(n) || n < 1) failLimit()
-				limit = n
-				i += 1
-			} else if (arg.startsWith('--')) {
-				process.stderr.write(`Error: Unknown watch history flag: "${arg}"\n`)
-				process.stderr.write(
-					'Usage: last-30-days watch history "topic" [--limit=10|--limit 10]\n',
-				)
-				process.exit(1)
-			} else if (!arg.startsWith('-')) {
-				topic = topic ? `${topic} ${arg}` : arg
-			}
-		}
-
-		if (!topic) {
-			process.stderr.write('Error: watch history requires a topic.\n')
-			process.stderr.write(
-				'Usage: last-30-days watch history "topic" [--limit=10]\n',
+		watchRemove(cmd.topic)
+	} else if (cmd.subcommand === 'history') {
+		if (wantsJson) {
+			const entries = getHistory(cmd.topic, cmd.limit)
+			writeEnvelope(
+				{ action: 'watch.history', topic: cmd.topic, entries },
+				cmd.json && !cmd.jsonl,
 			)
-			process.exit(1)
+			return
 		}
-
-		watchHistory(topic, limit)
-		return
+		watchHistory(cmd.topic, cmd.limit)
 	}
-
-	// Unknown or missing subcommand.
-	process.stderr.write(
-		`Error: Unknown watch subcommand: "${sub ?? ''}"\n` +
-			'Valid subcommands: add, list, remove, history\n',
-	)
-	process.exit(1)
 }
 
 // ---------------------------------------------------------------------------
@@ -1002,23 +680,54 @@ function handleWatchCommand(args: string[]): void {
 
 async function main() {
 	const rawArgs = process.argv.slice(2)
+	const parsed = parseCliArgs(rawArgs)
 
-	// Route subcommands before main argument parsing.
-	if (rawArgs[0] === 'watch') {
-		handleWatchCommand(rawArgs.slice(1))
+	// Parser returned an error -- throw it so the catch handler routes it.
+	if (!parsed.ok) throw parsed.error
+
+	const cmd = parsed.value
+
+	// Route subcommands
+	if (cmd.command === 'help') {
+		if (!isValidHelpTopic(cmd.helpTopic)) {
+			throw new CliError(
+				`Unknown help topic: "${cmd.helpTopic}". Valid: overview, sources, output, contract`,
+				{ exitCode: EXIT_USAGE, code: 'UNKNOWN_HELP_TOPIC' },
+			)
+		}
+		console.log(renderHelp(cmd.helpTopic))
+		return
+	}
+	if (cmd.command === 'version') {
+		process.stdout.write(`${getPackageVersion()}\n`)
 		return
 	}
 
-	// Briefing subcommand.
-	if (rawArgs[0] === 'briefing') {
-		handleBriefingCommand(rawArgs.slice(1))
+	if (cmd.command === 'watch') {
+		handleWatchCommand(cmd)
 		return
 	}
 
-	const args = parseArgs(rawArgs)
+	if (cmd.command === 'briefing') {
+		handleBriefingCommand(cmd)
+		return
+	}
+
+	// Search command
+	const args = cmd as SearchCommand
+	const outputArgs = resolveOutputArgs(args, process.stdout.isTTY)
+	const fieldsProvided = args.fields.length > 0
+	const fieldsAllowed =
+		outputArgs.json || outputArgs.jsonl || args.emit === 'json'
+	if (fieldsProvided && !fieldsAllowed) {
+		throw new CliError(
+			'--fields can only be used with --json, --jsonl, or --emit=json.',
+			{ exitCode: EXIT_CONFLICT, code: 'CONFLICT_FLAGS' },
+		)
+	}
 
 	if (args.debug) {
-		process.env.LAST_30_DAYS_DEBUG = '1'
+		process.env.WOTS_DEBUG = '1'
 		process.stderr.write(
 			`[debug] strategy=${args.strategy} phase2Budget=${args.phase2Budget}\n`,
 		)
@@ -1033,24 +742,46 @@ async function main() {
 
 	// Validate --days
 	if (!Number.isInteger(args.days) || args.days < 1 || args.days > 365) {
-		process.stderr.write(
-			'Error: --days must be an integer between 1 and 365.\n',
-		)
-		process.exit(1)
+		throw new CliError('--days must be an integer between 1 and 365.', {
+			exitCode: EXIT_USAGE,
+			code: 'INVALID_DAYS',
+		})
 	}
 
 	// Determine depth
 	if (args.quick && args.deep) {
-		process.stderr.write('Error: Cannot use both --quick and --deep\n')
-		process.exit(1)
+		throw new CliError('Cannot use both --quick and --deep.', {
+			exitCode: EXIT_CONFLICT,
+			code: 'CONFLICT_QUICK_DEEP',
+		})
+	}
+	if (args.fast && args.cheap) {
+		throw new CliError('Cannot use both --fast and --cheap.', {
+			exitCode: EXIT_CONFLICT,
+			code: 'CONFLICT_FAST_CHEAP',
+		})
 	}
 	const depth = args.quick ? 'quick' : args.deep ? 'deep' : 'default'
 
 	if (!args.topic) {
-		process.stderr.write('Error: Please provide a topic to research.\n')
-		process.stderr.write('Usage: last-30-days <topic> [options]\n')
-		process.stderr.write('Run last-30-days --help for full usage.\n')
-		process.exit(1)
+		throw new CliError(
+			'Please provide a topic to research.\nUsage: wots <topic> [options]\nRun wots --help for full usage.',
+			{ exitCode: EXIT_USAGE, code: 'MISSING_TOPIC' },
+		)
+	}
+
+	if (args.outdir) {
+		const resolved = resolve(args.outdir)
+		if (!isAbsolute(args.outdir)) {
+			const cwd = process.cwd()
+			const withinCwd = resolved === cwd || resolved.startsWith(`${cwd}${sep}`)
+			if (!withinCwd) {
+				throw new CliError(
+					'--outdir must stay within the current working directory when using a relative path. Use an absolute path to write elsewhere.',
+					{ exitCode: EXIT_USAGE, code: 'INVALID_OUTDIR' },
+				)
+			}
+		}
 	}
 
 	// Resolve intent classification
@@ -1060,14 +791,23 @@ async function main() {
 			: (args.queryType as QueryType)
 	const intentPolicy = getIntentPolicy(resolvedQueryType)
 
+	// Load config
+	const cfg = getConfig()
+	if (args.fast) {
+		cfg.OPENAI_MODEL_POLICY = 'pinned'
+		cfg.OPENAI_MODEL_PIN = 'gpt-4o'
+	} else if (args.cheap) {
+		cfg.OPENAI_MODEL_POLICY = 'pinned'
+		cfg.OPENAI_MODEL_PIN = 'gpt-4o-mini-search-preview'
+	}
 	if (args.debug) {
 		process.stderr.write(
 			`[debug] query-type=${resolvedQueryType} (input: ${args.queryType})\n`,
 		)
+		process.stderr.write(
+			`[debug] openai-model-policy=${cfg.OPENAI_MODEL_POLICY} openai-model-pin=${cfg.OPENAI_MODEL_PIN ?? 'none'}\n`,
+		)
 	}
-
-	// Load config
-	const cfg = getConfig()
 	const available = getAvailableSources(cfg)
 
 	// Determine sources
@@ -1081,8 +821,10 @@ async function main() {
 		)
 		sources = effectiveSources
 		if (error && !error.includes('WebSearch fallback')) {
-			process.stderr.write(`Error: ${error}\n`)
-			process.exit(1)
+			throw new CliError(error, {
+				exitCode: EXIT_UNAUTHORIZED,
+				code: 'MISSING_API_KEY',
+			})
 		}
 	} else {
 		const [effectiveSources, error] = validateSources(
@@ -1095,8 +837,10 @@ async function main() {
 			if (error.includes('WebSearch fallback')) {
 				process.stderr.write(`Note: ${error}\n`)
 			} else {
-				process.stderr.write(`Error: ${error}\n`)
-				process.exit(1)
+				throw new CliError(error, {
+					exitCode: EXIT_UNAUTHORIZED,
+					code: 'MISSING_API_KEY',
+				})
 			}
 		}
 	}
@@ -1106,7 +850,7 @@ async function main() {
 	const missingKeys = getMissingKeys(cfg)
 
 	// Initialize progress
-	const progress = new ProgressDisplay(args.topic, true)
+	const progress = new ProgressDisplay(args.topic, true, outputArgs.quiet)
 
 	if (missingKeys !== 'none') progress.showPromo(missingKeys)
 
@@ -1206,10 +950,10 @@ async function main() {
 				if (result.rateLimited) redditRateLimited = true
 				if (result.usedStaleCache) redditUsedStaleCache = true
 				if (result.fromCache && !result.rateLimited) {
-					progress.endReddit(redditItems.length)
+					progress.endReddit()
 				} else {
 					if (redditError) progress.showError(`Reddit error: ${redditError}`)
-					progress.endReddit(redditItems.length)
+					progress.endReddit()
 				}
 			}),
 		)
@@ -1244,10 +988,10 @@ async function main() {
 				if (result.rateLimited) xRateLimited = true
 				if (result.usedStaleCache) xUsedStaleCache = true
 				if (result.fromCache && !result.rateLimited) {
-					progress.endX(xItems.length)
+					progress.endX()
 				} else {
 					if (xError) progress.showError(`X error: ${xError}`)
-					progress.endX(xItems.length)
+					progress.endX()
 				}
 			}),
 		)
@@ -1337,7 +1081,7 @@ async function main() {
 			} catch (e) {
 				youtubeError = `YouTube fixture error: ${e}`
 			}
-			progress.endYouTube(youtubeRawItems.length)
+			progress.endYouTube()
 		} else if (isYtDlpAvailable()) {
 			progress.startYouTube()
 			try {
@@ -1346,7 +1090,7 @@ async function main() {
 			} catch (e) {
 				youtubeError = `YouTube search error: ${e}`
 			}
-			progress.endYouTube(youtubeRawItems.length)
+			progress.endYouTube()
 		} else {
 			progress.showError('yt-dlp not installed, skipping YouTube')
 			youtubeError = 'yt-dlp not installed'
@@ -1453,23 +1197,47 @@ async function main() {
 	if (sources === 'web') {
 		progress.showWebOnlyComplete()
 	} else {
-		progress.showComplete(dedupedReddit.length, dedupedX.length)
+		progress.showComplete(
+			dedupedReddit.length,
+			dedupedX.length,
+			dedupedYouTube.length,
+		)
 	}
 
-	// Output result
-	if (args.emit === 'compact') {
+	// Build web search extras for envelope modes
+	const webExtras = webNeeded
+		? {
+				web_search_instructions: {
+					topic: args.topic,
+					date_range: { from: fromDate, to: toDate },
+					days: args.days,
+					instructions:
+						'Use WebSearch tool to find 8-15 relevant web pages. Exclude reddit.com, x.com, twitter.com.',
+				},
+			}
+		: undefined
+
+	// Field projection helper -- applies --fields at the output boundary
+	const hasFields = args.fields.length > 0
+	const applyProjection = (dict: Record<string, unknown>) =>
+		hasFields ? projectReport(dict, args.fields) : dict
+
+	// Output result: --json and --jsonl take precedence over --emit
+	if (outputArgs.json) {
+		const envelope = wrapReport(report, webExtras)
+		envelope.data = applyProjection(envelope.data)
+		console.log(JSON.stringify(envelope, null, 2))
+	} else if (outputArgs.jsonl) {
+		const lines = reportToJsonl(report, args.fields)
+		for (const line of lines) {
+			process.stdout.write(`${line}\n`)
+		}
+	} else if (args.emit === 'compact') {
 		console.log(renderCompact(report, 15, missingKeys))
 	} else if (args.emit === 'json') {
-		const dict = reportToDict(report) as Record<string, unknown>
-		if (webNeeded) {
-			dict.web_search_instructions = {
-				topic: args.topic,
-				date_range: { from: fromDate, to: toDate },
-				days: args.days,
-				instructions:
-					'Use WebSearch tool to find 8-15 relevant web pages. Exclude reddit.com, x.com, twitter.com.',
-			}
-		}
+		let dict = reportToDict(report) as Record<string, unknown>
+		if (webExtras) Object.assign(dict, webExtras)
+		dict = applyProjection(dict)
 		console.log(JSON.stringify(dict, null, 2))
 	} else if (args.emit === 'md') {
 		console.log(renderFullReport(report))
@@ -1480,10 +1248,13 @@ async function main() {
 	}
 
 	// Web mode handoff: print structured instructions for Claude's WebSearch tool.
-	// Unlike Reddit/X, web search runs in Claude's process, not ours.
-	// See src/lib/websearch.ts module comment for architecture rationale.
-	// Output WebSearch instructions if needed (skip for JSON - already embedded)
-	if (webNeeded && args.emit !== 'json') {
+	// Skip for JSON modes (already embedded in envelope/dict).
+	if (
+		webNeeded &&
+		!outputArgs.json &&
+		!outputArgs.jsonl &&
+		args.emit !== 'json'
+	) {
 		console.log(`\n${'='.repeat(60)}`)
 		console.log('### WEBSEARCH REQUIRED ###')
 		console.log('='.repeat(60))
@@ -1511,9 +1282,20 @@ async function main() {
 	}
 }
 
-main()
-	.then(() => process.exit(0))
-	.catch((e) => {
-		process.stderr.write(`Fatal error: ${e}\n`)
-		process.exit(1)
-	})
+// Graceful SIGINT handler (Ctrl-C)
+if (import.meta.main) {
+	process.on('SIGINT', () => process.exit(EXIT_INTERRUPTED))
+
+	main()
+		.then(() => process.exit(0))
+		.catch((e) => {
+			const rawArgs = process.argv.slice(2)
+			const ctx = resolveErrorContext(rawArgs, process.stdout.isTTY)
+			writeError(ctx, e)
+
+			if (e instanceof CliError) {
+				process.exit(e.exitCode)
+			}
+			process.exit(EXIT_RUNTIME)
+		})
+}

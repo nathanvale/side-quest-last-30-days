@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`@side-quest/last-30-days` -- a CLI + library that researches any topic from the last 30 days across Reddit, X, and web search, returning engagement-ranked results. Single package (not a monorepo), published to npm with provenance signing.
+`@side-quest/word-on-the-street` (`wots`) -- a CLI + library that researches any topic across Reddit, X, and web search, returning engagement-ranked results. Single package (not a monorepo), published to npm with provenance signing.
 
 ## Commands
 
@@ -68,7 +68,7 @@ CLI (Editor-in-Chief) -- src/cli.ts
 | Module | Responsibility |
 |--------|---------------|
 | cache.ts | Filesystem cache with TTL, versioning, concurrency safety |
-| config.ts | Loads env vars from `~/.config/last-30-days/.env` |
+| config.ts | Loads env vars from `~/.config/wots/.env` |
 | dates.ts | Date range math, recency scoring |
 | dedupe.ts | N-gram Jaccard similarity deduplication |
 | http.ts | Retry logic, rate-limit parsing, error types |
@@ -107,7 +107,7 @@ GitHub Actions with Changesets workflow:
 ## CLI Usage
 
 ```bash
-last-30-days "topic" --days=7 --emit=json --outdir=/tmp/out --mock
+wots "topic" --days=7 --emit=json --outdir=/tmp/out --mock
 ```
 
-Config lives at `~/.config/last-30-days/.env` (OPENAI_API_KEY, XAI_API_KEY).
+Config lives at `~/.config/wots/.env` (OPENAI_API_KEY, XAI_API_KEY).

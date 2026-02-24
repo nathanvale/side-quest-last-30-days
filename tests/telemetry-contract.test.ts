@@ -18,7 +18,7 @@ describe('telemetry contract v1', () => {
 	test('sample payload parses as run.completed envelope', () => {
 		const envelope = parseRunCompletedEnvelope(fixture)
 		expect(envelope.type).toBe('l30d.run.completed')
-		expect(envelope.app).toBe('last-30-days')
+		expect(envelope.app).toBe('wots')
 		expect(envelope.data.contract_version).toBe('l30d.run.completed.v1')
 	})
 

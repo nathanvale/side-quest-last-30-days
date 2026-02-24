@@ -1,0 +1,17 @@
+{
+	"id": "resp_edge_cases",
+	"object": "response",
+	"created": 1706140800,
+	"model": "gpt-4o-search-preview",
+	"output": [
+		{
+			"type": "message",
+			"content": [
+				{
+					"type": "output_text",
+					"text": "{\n  \"items\": [\n    {\n      \"title\": \"Edge Case Valid\",\n      \"url\": \"https://www.reddit.com/r/Test/comments/abc123/edge_case_valid/\",\n      \"subreddit\": \"Test\",\n      \"date\": \"2026-02-10\",\n      \"why_relevant\": \"Valid item\",\n      \"relevance\": \"0.9\"\n    },\n    {\n      \"title\": \"Missing Subreddit\",\n      \"url\": \"https://www.reddit.com/r/Test/comments/def456/missing_subreddit/\",\n      \"subreddit\": null,\n      \"date\": \"2026/02/99\",\n      \"why_relevant\": \"Invalid date should be nulled\",\n      \"relevance\": null\n    },\n    {\n      \"title\": \"NaN Relevance\",\n      \"url\": \"https://www.reddit.com/r/Test/comments/ghi789/nan_relevance/\",\n      \"subreddit\": \"Test\",\n      \"date\": null,\n      \"why_relevant\": \"NaN relevance should default\",\n      \"relevance\": \"NaN\"\n    },\n    {\n      \"title\": \"Non Reddit URL\",\n      \"url\": \"https://example.com/not_reddit\",\n      \"subreddit\": \"Example\",\n      \"date\": \"2026-02-10\",\n      \"why_relevant\": \"Should be filtered\",\n      \"relevance\": 0.6\n    },\n    {\n      \"title\": \"URL Variant A\",\n      \"url\": \"https://www.reddit.com/r/Test/comments/dup111/title/?utm_source=foo\",\n      \"subreddit\": \"Test\",\n      \"date\": \"2026-02-11\",\n      \"why_relevant\": \"Same thread with params\",\n      \"relevance\": 0.8\n    },\n    {\n      \"title\": \"URL Variant B\",\n      \"url\": \"https://reddit.com/r/Test/comments/dup111/title/\",\n      \"subreddit\": \"Test\",\n      \"date\": \"2026-02-11\",\n      \"why_relevant\": \"Same thread without params\",\n      \"relevance\": 0.7\n    }\n  ]\n}"
+				}
+			]
+		}
+	]
+}

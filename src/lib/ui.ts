@@ -1,4 +1,4 @@
-/** Terminal UI utilities for last-30-days skill. */
+/** Terminal UI utilities for wots CLI. */
 
 const IS_TTY = process.stderr.isTTY ?? false
 
@@ -11,7 +11,7 @@ const BOLD = '\x1b[1m'
 const DIM = '\x1b[2m'
 const RESET = '\x1b[0m'
 
-const MINI_BANNER = `${PURPLE}${BOLD}/last-30-days${RESET} ${DIM}· researching...${RESET}`
+const MINI_BANNER = `${PURPLE}${BOLD}/wots${RESET} ${DIM}· researching...${RESET}`
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
@@ -115,35 +115,42 @@ export class ProgressDisplay {
 	private topic: string
 	private spinner: Spinner | null = null
 	private startTime: number
+	private quiet: boolean
 
-	constructor(topic: string, showBanner = true) {
+	constructor(topic: string, showBanner = true, quiet = false) {
 		this.topic = topic
 		this.startTime = Date.now()
-		if (showBanner) this.showBanner()
+		this.quiet = quiet
+		if (showBanner && !quiet) this.showBanner()
+	}
+
+	/** Write to stderr unless quiet mode is active. */
+	private write(msg: string): void {
+		if (!this.quiet) process.stderr.write(msg)
 	}
 
 	private showBanner(): void {
 		if (IS_TTY) {
-			process.stderr.write(`${MINI_BANNER}\n`)
-			process.stderr.write(
-				`${DIM}Topic: ${RESET}${BOLD}${this.topic}${RESET}\n\n`,
-			)
+			this.write(`${MINI_BANNER}\n`)
+			this.write(`${DIM}Topic: ${RESET}${BOLD}${this.topic}${RESET}\n\n`)
 		} else {
-			process.stderr.write(`/last-30-days · researching: ${this.topic}\n`)
+			this.write(`/wots · researching: ${this.topic}\n`)
 		}
 	}
 
 	startReddit(): void {
+		if (this.quiet) return
 		const msg = pick(REDDIT_MESSAGES)
 		this.spinner = new Spinner(`${YELLOW}Reddit${RESET} ${msg}`, YELLOW)
 		this.spinner.start()
 	}
 
-	endReddit(count: number): void {
-		this.spinner?.stop(`${YELLOW}Reddit${RESET} Found ${count} threads`)
+	endReddit(): void {
+		this.spinner?.stop(`${YELLOW}Reddit${RESET} Completed`)
 	}
 
 	startRedditEnrich(current: number, total: number): void {
+		if (this.quiet) return
 		this.spinner?.stop()
 		const msg = pick(ENRICHING_MESSAGES)
 		this.spinner = new Spinner(
@@ -154,6 +161,7 @@ export class ProgressDisplay {
 	}
 
 	updateRedditEnrich(current: number, total: number): void {
+		if (this.quiet) return
 		const msg = pick(ENRICHING_MESSAGES)
 		this.spinner?.update(`${YELLOW}Reddit${RESET} [${current}/${total}] ${msg}`)
 	}
@@ -163,28 +171,31 @@ export class ProgressDisplay {
 	}
 
 	startX(): void {
+		if (this.quiet) return
 		const msg = pick(X_MESSAGES)
 		this.spinner = new Spinner(`${CYAN}X${RESET} ${msg}`, CYAN)
 		this.spinner.start()
 	}
 
-	endX(count: number): void {
-		this.spinner?.stop(`${CYAN}X${RESET} Found ${count} posts`)
+	endX(): void {
+		this.spinner?.stop(`${CYAN}X${RESET} Completed`)
 	}
 
 	/** Start YouTube search phase. */
 	startYouTube(): void {
+		if (this.quiet) return
 		const msg = pick(YOUTUBE_MESSAGES)
 		this.spinner = new Spinner(`${RED}YouTube${RESET} ${msg}`, RED)
 		this.spinner.start()
 	}
 
 	/** End YouTube search phase. */
-	endYouTube(count: number): void {
-		this.spinner?.stop(`${RED}YouTube${RESET} Found ${count} videos`)
+	endYouTube(): void {
+		this.spinner?.stop(`${RED}YouTube${RESET} Completed`)
 	}
 
 	startProcessing(): void {
+		if (this.quiet) return
 		const msg = pick(PROCESSING_MESSAGES)
 		this.spinner = new Spinner(`${PURPLE}Processing${RESET} ${msg}`, PURPLE)
 		this.spinner.start()
@@ -194,25 +205,29 @@ export class ProgressDisplay {
 		this.spinner?.stop()
 	}
 
-	showComplete(redditCount: number, xCount: number): void {
+	showComplete(
+		redditCount: number,
+		xCount: number,
+		youtubeCount: number,
+	): void {
 		const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1)
 		if (IS_TTY) {
-			process.stderr.write(
+			this.write(
 				`\n${GREEN}${BOLD}✓ Research complete${RESET} ${DIM}(${elapsed}s)${RESET}\n`,
 			)
-			process.stderr.write(
-				`  ${YELLOW}Reddit:${RESET} ${redditCount} threads  ${CYAN}X:${RESET} ${xCount} posts\n\n`,
+			this.write(
+				`  ${YELLOW}Reddit:${RESET} ${redditCount} threads  ${CYAN}X:${RESET} ${xCount} posts  ${RED}YouTube:${RESET} ${youtubeCount} videos\n\n`,
 			)
 		} else {
-			process.stderr.write(
-				`✓ Research complete (${elapsed}s) - Reddit: ${redditCount} threads, X: ${xCount} posts\n`,
+			this.write(
+				`✓ Research complete (${elapsed}s) - Reddit: ${redditCount} threads, X: ${xCount} posts, YouTube: ${youtubeCount} videos\n`,
 			)
 		}
 	}
 
 	showCached(ageHours: number | null = null): void {
 		const ageStr = ageHours != null ? ` (${ageHours.toFixed(1)}h old)` : ''
-		process.stderr.write(
+		this.write(
 			`${GREEN}⚡${RESET} ${DIM}Using cached results${ageStr} - use --refresh for fresh data${RESET}\n`,
 		)
 	}
@@ -226,21 +241,22 @@ export class ProgressDisplay {
 		if (usedCache) {
 			const ageStr =
 				cacheAgeHours != null ? ` (${cacheAgeHours.toFixed(1)}h old)` : ''
-			process.stderr.write(
+			this.write(
 				`${YELLOW}⚠ ${source} rate-limited - using cached data${ageStr}. Try again shortly or use --refresh later.${RESET}\n`,
 			)
 		} else {
-			process.stderr.write(
+			this.write(
 				`${YELLOW}⚠ ${source} rate-limited - no cached results available. Try again in a few minutes.${RESET}\n`,
 			)
 		}
 	}
 
 	showError(message: string): void {
-		process.stderr.write(`${RED}✗ Error:${RESET} ${message}\n`)
+		this.write(`${RED}✗ Error:${RESET} ${message}\n`)
 	}
 
 	startWebOnly(): void {
+		if (this.quiet) return
 		const msg = pick(WEB_ONLY_MESSAGES)
 		this.spinner = new Spinner(`${GREEN}Web${RESET} ${msg}`, GREEN)
 		this.spinner.start()
@@ -253,28 +269,28 @@ export class ProgressDisplay {
 	showWebOnlyComplete(): void {
 		const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1)
 		if (IS_TTY) {
-			process.stderr.write(
+			this.write(
 				`\n${GREEN}${BOLD}✓ Ready for web search${RESET} ${DIM}(${elapsed}s)${RESET}\n`,
 			)
-			process.stderr.write(
+			this.write(
 				`  ${GREEN}Web:${RESET} Claude will search blogs, docs & news\n\n`,
 			)
 		} else {
-			process.stderr.write(`✓ Ready for web search (${elapsed}s)\n`)
+			this.write(`✓ Ready for web search (${elapsed}s)\n`)
 		}
 	}
 
 	showPromo(missing: string): void {
 		if (missing === 'both') {
-			process.stderr.write(
-				`\n${YELLOW}⚡ Add API keys to ~/.config/last-30-days/.env for Reddit & X data${RESET}\n`,
+			this.write(
+				`\n${YELLOW}⚡ Add API keys to ~/.config/wots/.env for Reddit & X data${RESET}\n`,
 			)
 		} else if (missing === 'reddit') {
-			process.stderr.write(
+			this.write(
 				`${DIM}💡 Add OPENAI_API_KEY for Reddit data with real engagement metrics${RESET}\n`,
 			)
 		} else if (missing === 'x') {
-			process.stderr.write(
+			this.write(
 				`${DIM}💡 Add XAI_API_KEY for X/Twitter data with real likes & reposts${RESET}\n`,
 			)
 		}

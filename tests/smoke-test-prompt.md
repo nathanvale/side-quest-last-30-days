@@ -1,8 +1,8 @@
-# Smoke Test: @side-quest/last-30-days
+# Smoke Test: @side-quest/word-on-the-street
 
 ## Instructions
 
-You are running a comprehensive smoke test of the `@side-quest/last-30-days` CLI and library. This test exercises every major feature and validates the tool works correctly.
+You are running a comprehensive smoke test of the `@side-quest/word-on-the-street` CLI and library. This test exercises every major feature and validates the tool works correctly.
 
 **Run each phase sequentially**, recording **PASS** or **FAIL** for every check. At the end, print a summary table showing results for all 15 phases.
 
@@ -14,10 +14,10 @@ You are running a comprehensive smoke test of the `@side-quest/last-30-days` CLI
 
 Verify we're in the correct repository and build the project.
 
-**S.1** - Verify package.json name field equals `@side-quest/last-30-days`
+**S.1** - Verify package.json name field equals `@side-quest/word-on-the-street`
 
 ```bash
-bun run -s -e "const pkg = require('./package.json'); process.exit(pkg.name === '@side-quest/last-30-days' ? 0 : 1)"
+bun run -s -e "const pkg = require('./package.json'); process.exit(pkg.name === '@side-quest/word-on-the-street' ? 0 : 1)"
 ```
 
 **PASS**: Exit code 0
@@ -120,7 +120,7 @@ Test all five output formats with mock data. Each should exit successfully with 
 ./dist/cli.js "test topic" --mock --emit=path
 ```
 
-**PASS**: Exit 0, output is a valid file path ending with "last-30-days.context.md"
+**PASS**: Exit 0, output is a valid file path ending with "wots.context.md"
 
 **P2.6** - Validate JSON schema structure
 
@@ -375,7 +375,7 @@ Test --debug flag for verbose logging.
 ./dist/cli.js "test topic" --mock --debug --emit=compact 2>&1 | tee /tmp/smoke-debug.txt
 ```
 
-**PASS**: Exit 0, combined output (stdout+stderr) is longer than non-debug run or environment variable `LAST_30_DAYS_DEBUG=1` is set (verify programmatically if needed)
+**PASS**: Exit 0, combined output (stdout+stderr) is longer than non-debug run or environment variable `WOTS_DEBUG=1` is set (verify programmatically if needed)
 
 ---
 
@@ -489,10 +489,10 @@ Verify that output files are written to the correct location after a run.
 ./dist/cli.js "output test topic" --mock --emit=compact
 ```
 
-Check that `~/.local/share/last-30-days/out/` directory exists and contains:
+Check that `~/.local/share/wots/out/` directory exists and contains:
 - `report.json`
 - `report.md`
-- `last-30-days.context.md`
+- `wots.context.md`
 
 **PASS**: Exit 0, all three files exist and are non-empty
 
@@ -502,13 +502,13 @@ Check that `~/.local/share/last-30-days/out/` directory exists and contains:
 ./dist/cli.js "test topic" --mock --emit=path
 ```
 
-Capture output and verify it matches `~/.local/share/last-30-days/out/last-30-days.context.md`
+Capture output and verify it matches `~/.local/share/wots/out/wots.context.md`
 
 **PASS**: Exit 0, output path is correct
 
 **P11.3** - Verify context file content
 
-Read `~/.local/share/last-30-days/out/last-30-days.context.md` and verify it contains:
+Read `~/.local/share/wots/out/wots.context.md` and verify it contains:
 - `# Context:` heading
 - `## Key Sources` section
 - `## Summary` section

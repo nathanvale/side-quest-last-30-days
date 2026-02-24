@@ -20,7 +20,7 @@
 		"id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{8,64}$" },
 		"timestamp": { "type": "string", "format": "date-time" },
 		"type": { "const": "l30d.run.completed" },
-		"app": { "const": "last-30-days" },
+		"app": { "const": "wots" },
 		"appRoot": { "type": "string", "minLength": 1 },
 		"source": { "const": "cli" },
 		"correlationId": {
