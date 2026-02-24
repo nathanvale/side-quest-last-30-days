@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+### Minor Changes
+
+- [#32](https://github.com/nathanvale/side-quest-last-30-days/pull/32) [`d02a259`](https://github.com/nathanvale/side-quest-last-30-days/commit/d02a2598b1bd124af1b7cfbcf4f99b0e8d757d06) Thanks [@nathanvale](https://github.com/nathanvale)! - Add a YouTube source adapter and wire YouTube results into the retrieval and scoring pipeline.
+
+### Patch Changes
+
+- [#53](https://github.com/nathanvale/side-quest-last-30-days/pull/53) [`e27de86`](https://github.com/nathanvale/side-quest-last-30-days/commit/e27de86bc7e71903cb5d7d1fe309dde73d89c215) Thanks [@nathanvale](https://github.com/nathanvale)! - Harden reliability workflows and eval scripts for production rollout:
+
+  - add stronger artifact validation in live reliability workflows
+  - remove machine-specific path assumptions in baseline/eval tooling
+  - improve legacy path handling and error reporting
+  - fix CSV escaping in reliability matrix outputs
+  - keep workflow summaries and lock-gate reporting consistent
+
 ## 0.1.3
 
 ### Patch Changes
