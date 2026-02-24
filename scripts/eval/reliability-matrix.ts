@@ -277,20 +277,43 @@ const assessment = {
 	topics_selected: topics.length,
 }
 
+function csvEscape(value: unknown): string {
+	const text = value == null ? '' : String(value)
+	return `"${text.replace(/"/g, '""')}"`
+}
+
 function toCsv(records: RecordRow[]): string {
-	const head =
-		'topic,source,repeat,impl,exit_code,parsed,success,count,error,quota_error,parse_count,enrich_count,normalize_count,date_filtered_count,scored_count,deduped_count,final_report_count,stage_error'
+	const head = [
+		'topic',
+		'source',
+		'repeat',
+		'impl',
+		'exit_code',
+		'parsed',
+		'success',
+		'count',
+		'error',
+		'quota_error',
+		'parse_count',
+		'enrich_count',
+		'normalize_count',
+		'date_filtered_count',
+		'scored_count',
+		'deduped_count',
+		'final_report_count',
+		'stage_error',
+	].join(',')
 	const rows = records.map((r) =>
 		[
-			r.topic,
-			r.source,
+			csvEscape(r.topic),
+			csvEscape(r.source),
 			r.repeat,
-			r.impl,
+			csvEscape(r.impl),
 			r.exit_code,
 			r.parsed,
 			r.success,
 			r.count,
-			`"${(r.error ?? '').replace(/"/g, '""')}"`,
+			csvEscape(r.error ?? ''),
 			r.quota_error,
 			r.stages?.parse_count ?? '',
 			r.stages?.enrich_count ?? '',
@@ -299,7 +322,7 @@ function toCsv(records: RecordRow[]): string {
 			r.stages?.scored_count ?? '',
 			r.stages?.deduped_count ?? '',
 			r.stages?.final_report_count ?? '',
-			`"${(r.stage_error ?? '').replace(/"/g, '""')}"`,
+			csvEscape(r.stage_error ?? ''),
 		].join(','),
 	)
 	return [head, ...rows].join('\n') + '\n'

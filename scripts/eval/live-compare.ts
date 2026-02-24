@@ -6,7 +6,7 @@
  * captures reliability + coverage metrics, and writes graph-ready artifacts.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { dedupeReddit } from '../../src/lib/dedupe.js'
@@ -26,6 +26,7 @@ type TopicSpec = {
 
 type CliArgs = {
 	legacyPath: string
+	legacyAvailable: boolean
 	outPath: string
 	csvPath: string
 	topics: TopicSpec[]
@@ -111,10 +112,22 @@ function parseArgs(argv: string[]): CliArgs {
 				.map((topic) => ({ topic }))
 		: DEFAULT_TOPICS
 
+	const legacyPath = resolve(
+		map.get('legacy') ??
+			process.env.LEGACY_REPO ??
+			join(homedir(), 'code', 'last30days'),
+	)
+	const legacyAvailable = existsSync(legacyPath)
+	if (!legacyAvailable) {
+		process.stderr.write(
+			`[eval:live] warning: legacy repo not found at ${legacyPath}; ` +
+				'legacy runs may fail. Set --legacy or LEGACY_REPO.\n',
+		)
+	}
+
 	return {
-		legacyPath: resolve(
-			map.get('legacy') ?? '/Users/nathanvale/code/last30days',
-		),
+		legacyPath,
+		legacyAvailable,
 		outPath: resolve(map.get('out') ?? 'reports/live-compare.json'),
 		csvPath: resolve(map.get('csv') ?? 'reports/live-compare-runs.csv'),
 		topics,
@@ -190,6 +203,23 @@ function runOne(
 	repeat: number,
 	impl: 'current' | 'legacy',
 ): RunRecord {
+	if (impl === 'legacy' && !args.legacyAvailable) {
+		return {
+			topic,
+			source,
+			repeat,
+			impl,
+			exit_code: 2,
+			parsed: false,
+			success: false,
+			count: 0,
+			error: `legacy repo missing at ${args.legacyPath}`,
+			quota_error: false,
+			stages: null,
+			stage_error: null,
+		}
+	}
+
 	const cmd =
 		impl === 'current'
 			? [

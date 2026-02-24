@@ -81,7 +81,7 @@
 		"test:watch": "bun test --watch",
 		"update:baseline": "bun run scripts/baseline/update.ts",
 		"baseline:guard": "bun run scripts/baseline/guard.ts",
-		"compare:legacy": "bun run scripts/baseline/compare-legacy.ts --legacy=/Users/nathanvale/code/last30days --out=reports/legacy-compare.json",
+		"compare:legacy": "bun run scripts/baseline/compare-legacy.ts --out=reports/legacy-compare.json",
 		"eval": "bun run scripts/eval/run.ts",
 		"eval:reddit:debug": "bun run scripts/eval/reddit-drop-debug.ts",
 		"eval:pr": "bun run scripts/eval/run.ts --mode=pr",

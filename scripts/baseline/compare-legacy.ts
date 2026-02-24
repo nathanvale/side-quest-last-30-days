@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dedupeReddit, dedupeWebsearch, dedupeX } from '../../src/lib/dedupe.js'
@@ -58,7 +59,6 @@ type LegacyResult = {
 	}
 }
 
-const DEFAULT_LEGACY_PATH = '/Users/nathanvale/code/last30days'
 const DEFAULT_OUT_PATH = 'reports/legacy-compare.json'
 const DEFAULT_LEGACY_SCORE_TOLERANCE = {
 	absolute: 1,
@@ -480,9 +480,11 @@ function buildReport(
 }
 
 const args = parseArgs(process.argv.slice(2))
-const legacyPath = resolve(
-	args.legacy ?? process.env.LEGACY_REPO ?? DEFAULT_LEGACY_PATH,
-)
+const legacyPathRaw =
+	args.legacy ??
+	process.env.LEGACY_REPO ??
+	join(homedir(), 'code', 'last30days')
+const legacyPath = resolve(legacyPathRaw)
 const outPath = resolve(args.out ?? DEFAULT_OUT_PATH)
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const fixturePath = resolve(
@@ -490,9 +492,10 @@ const fixturePath = resolve(
 		join(scriptDir, '..', '..', 'fixtures', 'algorithm-baseline', 'v1.json'),
 )
 
-if (!legacyPath) {
+if (!legacyPathRaw || !existsSync(legacyPath)) {
 	process.stderr.write(
-		'Error: legacy repo path is required via --legacy or LEGACY_REPO.\n',
+		`Error: legacy repo path not found: ${legacyPath}\n` +
+			'Provide --legacy=<path> or LEGACY_REPO.\n',
 	)
 	process.exit(1)
 }

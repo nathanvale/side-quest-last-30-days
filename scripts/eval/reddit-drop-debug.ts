@@ -6,7 +6,7 @@
  * parse -> enrich -> normalize -> date-filter -> score -> dedupe -> final.
  */
 
-import { mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -50,7 +50,9 @@ function parseArgs(argv: string[]): CliArgs {
 		topic: map.get('topic') ?? 'React Server Components vulnerability',
 		days: Number(map.get('days') ?? '30'),
 		legacyPath: resolve(
-			map.get('legacy') ?? '/Users/nathanvale/code/last30days',
+			map.get('legacy') ??
+				process.env.LEGACY_REPO ??
+				join(homedir(), 'code', 'last30days'),
 		),
 		outPath: resolve(map.get('out') ?? 'reports/reddit-drop/stage-debug.json'),
 	}
@@ -226,6 +228,13 @@ function runAndTrace(args: CliArgs): Record<string, unknown> {
 }
 
 const args = parseArgs(process.argv.slice(2))
+if (!existsSync(args.legacyPath)) {
+	process.stderr.write(
+		`Error: legacy repo path not found: ${args.legacyPath}\n` +
+			'Provide --legacy=<path> or LEGACY_REPO.\n',
+	)
+	process.exit(1)
+}
 const result = runAndTrace(args)
 mkdirSync(resolve('reports/reddit-drop'), { recursive: true })
 Bun.write(args.outPath, `${JSON.stringify(result, null, 2)}\n`)

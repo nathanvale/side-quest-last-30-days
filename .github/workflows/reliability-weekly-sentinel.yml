@@ -70,6 +70,19 @@ jobs:
           PARTIAL_PATH="$(find reports -maxdepth 1 -type f -name 'live-compare.matrix-*.partial.json' | sort | tail -n1)"
           VISUALS_PATH="reports/lock-metrics-visuals.md"
 
+          if [ -z "${ASSESSMENT_PATH}" ]; then
+            echo "Missing artifact: assessment" >&2
+            exit 1
+          fi
+          if [ -z "${MATRIX_JSON_PATH}" ]; then
+            echo "Missing artifact: matrix_json" >&2
+            exit 1
+          fi
+          if [ -z "${MATRIX_CSV_PATH}" ]; then
+            echo "Missing artifact: matrix_csv" >&2
+            exit 1
+          fi
+
           {
             echo "assessment=${ASSESSMENT_PATH}"
             echo "matrix_json=${MATRIX_JSON_PATH}"
