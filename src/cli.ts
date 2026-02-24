@@ -1156,6 +1156,17 @@ async function main() {
 	const dedupedX = dedupeX(sortedX)
 	const dedupedYouTube = dedupeYouTube(sortedYouTube)
 
+	if (args.debug) {
+		process.stderr.write(
+			[
+				'[debug] counts',
+				`reddit raw=${redditItems.length} filtered=${filteredReddit.length} final=${dedupedReddit.length}`,
+				`x raw=${xItems.length} filtered=${filteredX.length} final=${dedupedX.length}`,
+				`youtube raw=${youtubeRawItems.length} filtered=${filteredYouTube.length} final=${dedupedYouTube.length}`,
+			].join(' | ') + '\n',
+		)
+	}
+
 	progress.endProcessing()
 
 	// Create report

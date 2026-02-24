@@ -68,6 +68,7 @@ class Spinner {
 	private timer: ReturnType<typeof setInterval> | null = null
 	private frameIdx = 0
 	private shownStatic = false
+	private readonly clearLine = '\r\x1b[2K'
 
 	constructor(message: string, color = CYAN) {
 		this.message = message
@@ -79,7 +80,7 @@ class Spinner {
 			this.timer = setInterval(() => {
 				const frame = SPINNER_FRAMES[this.frameIdx % SPINNER_FRAMES.length]
 				process.stderr.write(
-					`\r${this.color}${frame}${RESET} ${this.message}  `,
+					`${this.clearLine}${this.color}${frame}${RESET} ${this.message}`,
 				)
 				this.frameIdx++
 			}, 80)
@@ -91,7 +92,12 @@ class Spinner {
 
 	update(message: string): void {
 		this.message = message
-		if (!IS_TTY && !this.shownStatic) {
+		if (IS_TTY) {
+			const frame = SPINNER_FRAMES[this.frameIdx % SPINNER_FRAMES.length]
+			process.stderr.write(
+				`${this.clearLine}${this.color}${frame}${RESET} ${this.message}`,
+			)
+		} else if (!this.shownStatic) {
 			process.stderr.write(`⏳ ${message}\n`)
 		}
 	}
@@ -102,7 +108,7 @@ class Spinner {
 			this.timer = null
 		}
 		if (IS_TTY) {
-			process.stderr.write(`\r${' '.repeat(80)}\r`)
+			process.stderr.write(this.clearLine)
 		}
 		if (finalMessage) {
 			process.stderr.write(`✓ ${finalMessage}\n`)
