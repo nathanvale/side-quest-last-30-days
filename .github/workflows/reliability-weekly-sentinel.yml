@@ -1,0 +1,185 @@
+name: Reliability Live Sentinel (Weekly)
+
+on:
+  schedule:
+    - cron: '30 20 * * 0' # Weekly Monday 06:30 AEST / 07:30 AEDT (Sunday 20:30 UTC)
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: Matrix repeats per topic
+        required: false
+        default: '1'
+      topicLimit:
+        description: Number of topics from fixtures/eval/topics.json
+        required: false
+        default: '2'
+      timeoutMs:
+        description: Timeout per live compare run (ms)
+        required: false
+        default: '90000'
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Standard env
+        uses: ./.github/actions/standard-ci-env
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run live sentinel matrix
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          REPEATS: ${{ github.event.inputs.repeats || '1' }}
+          TOPIC_LIMIT: ${{ github.event.inputs.topicLimit || '2' }}
+          TIMEOUT_MS: ${{ github.event.inputs.timeoutMs || '90000' }}
+        run: |
+          set -euo pipefail
+          bun run eval:matrix \
+            --repeats="${REPEATS}" \
+            --topicLimit="${TOPIC_LIMIT}" \
+            --timeoutMs="${TIMEOUT_MS}"
+
+      - name: Locate matrix artifacts
+        id: artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSESSMENT_PATH="$(find reports -maxdepth 1 -type f -name 'live-compare.matrix-*.assessment.json' | sort | tail -n1)"
+          MATRIX_JSON_PATH="$(find reports -maxdepth 1 -type f -name 'live-compare.matrix-*.json' ! -name '*.assessment.json' ! -name '*.partial.json' ! -name '*.topic-*' | sort | tail -n1)"
+          MATRIX_CSV_PATH="$(find reports -maxdepth 1 -type f -name 'live-compare.matrix-*.csv' ! -name '*.topic-*' | sort | tail -n1)"
+          PARTIAL_PATH="$(find reports -maxdepth 1 -type f -name 'live-compare.matrix-*.partial.json' | sort | tail -n1)"
+          VISUALS_PATH="reports/lock-metrics-visuals.md"
+
+          {
+            echo "assessment=${ASSESSMENT_PATH}"
+            echo "matrix_json=${MATRIX_JSON_PATH}"
+            echo "matrix_csv=${MATRIX_CSV_PATH}"
+            echo "partial=${PARTIAL_PATH}"
+            echo "visuals=${VISUALS_PATH}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Render lock visuals
+        run: |
+          set -euo pipefail
+          bun run eval:lock:visuals \
+            --matrix="${{ steps.artifacts.outputs.matrix_json }}" \
+            --assessment="${{ steps.artifacts.outputs.assessment }}" \
+            --out="${{ steps.artifacts.outputs.visuals }}"
+
+      - name: Enforce lock gates
+        id: lock_gates
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          bun run eval:lock:check --assessment="${{ steps.artifacts.outputs.assessment }}"
+
+      - name: Upload sentinel artifacts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: reliability-sentinel-${{ github.run_id }}
+          path: |
+            ${{ steps.artifacts.outputs.assessment }}
+            ${{ steps.artifacts.outputs.matrix_json }}
+            ${{ steps.artifacts.outputs.matrix_csv }}
+            ${{ steps.artifacts.outputs.partial }}
+            ${{ steps.artifacts.outputs.visuals }}
+          retention-days: 30
+
+      - name: Add run summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## Reliability Live Sentinel (Weekly)"
+            echo ""
+            echo "- Assessment: \`${{ steps.artifacts.outputs.assessment }}\`"
+            echo "- Matrix JSON: \`${{ steps.artifacts.outputs.matrix_json }}\`"
+            echo "- Matrix CSV: \`${{ steps.artifacts.outputs.matrix_csv }}\`"
+            echo "- Visual report: \`${{ steps.artifacts.outputs.visuals }}\`"
+            echo "- Lock gates: **${{ steps.lock_gates.outcome == 'success' && 'PASS' || 'FAIL' }}**"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          VISUALS_FILE="${{ steps.artifacts.outputs.visuals }}"
+          if [ -f "$VISUALS_FILE" ]; then
+            awk '
+              /^## Gate Status/ { printing=1 }
+              /^## Topic Counts/ { printing=0 }
+              printing { print }
+            ' "$VISUALS_FILE" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_Trend section unavailable: visuals file not found._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create or update sentinel regression issue
+        if: steps.lock_gates.outcome == 'failure'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const title = 'Reliability live sentinel regression (weekly)'
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
+            const body = [
+              'Weekly live sentinel gates failed.',
+              '',
+              `- Run: ${runUrl}`,
+              `- Assessment: \`${{ steps.artifacts.outputs.assessment }}\``,
+              `- Matrix JSON: \`${{ steps.artifacts.outputs.matrix_json }}\``,
+              `- Matrix CSV: \`${{ steps.artifacts.outputs.matrix_csv }}\``,
+              `- Visuals: \`${{ steps.artifacts.outputs.visuals }}\``,
+            ].join('\n')
+
+            const existing = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+              labels: 'reliability,sentinel-regression',
+            })
+
+            const issue = existing.data.find((i) => i.title === title)
+            if (issue) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body,
+              })
+              core.info(`Updated existing issue #${issue.number}`)
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels: ['reliability', 'sentinel-regression'],
+              })
+              core.info(`Created issue #${created.data.number}`)
+            }
+
+      - name: Fail on gate regression
+        if: steps.lock_gates.outcome == 'failure'
+        run: exit 1
