@@ -327,6 +327,97 @@ regenerate the baseline and review the diff:
 bun run update:baseline
 ```
 
+### Lock Runbook (Scenario-Based)
+
+Use this workflow to decide whether a change is safe to lock as baseline.
+
+Deterministic gate (always required):
+
+```bash
+bun run typecheck
+bun test --recursive
+bun run compare:legacy
+```
+
+Live reliability gate (required for retrieval/runtime behavior changes):
+
+```bash
+bun run eval:matrix --topicLimit=10 --repeats=1 --timeoutMs=45000
+# optional stricter confidence pass
+bun run eval:matrix --topicLimit=10 --repeats=3 --timeoutMs=60000
+```
+
+Debug when Reddit drops to zero:
+
+```bash
+bun run eval:reddit:debug --topic="React Server Components vulnerability" --days=30
+```
+
+Scenario playbook:
+
+| Scenario | Required checks | Lock rule |
+|----------|------------------|-----------|
+| OpenAI/xAI model change (policy, pin, fallback order, prompt model hints) | Deterministic gate + live reliability gate | Lock only if matrix gate passes and no new catastrophic zero-rate regression |
+| Algorithm refactor (scoring, normalize, dedupe, date filtering, trend) | Deterministic gate + baseline update (`bun run update:baseline`) + live reliability gate | Lock only with reviewed baseline diff and passing matrix gate |
+| Reliability-only changes (retry/backoff/cache/stale fallback/timeout) | Deterministic gate + live reliability gate | Lock only if reliability gates improve or remain non-regressive |
+| CLI/reporting/telemetry refactor (no ranking logic changes) | Deterministic gate | Lock if deterministic gate passes; live matrix optional but recommended |
+| Docs-only changes | none | No lock workflow required |
+
+Primary lock artifact:
+
+- `docs/issues/2026-02-23-algorithm-winner-scorecard.md`
+
+Primary matrix artifacts:
+
+- `reports/live-compare.matrix-*.assessment.json`
+- `reports/live-compare.matrix-*.json`
+- `reports/live-compare.matrix-*.csv`
+
+### Live -> Fixture Transition Plan (Cost-Controlled)
+
+Goal: build confidence with live data, then stop continuous API spend.
+
+Phase 1: Burn-in (time-boxed, live)
+
+- Run live matrix nightly for a short window only.
+- Exit criteria: `7` consecutive nightly passes, or `10` total passing runs.
+- Command:
+
+```bash
+bun run eval:matrix --topicLimit=10 --repeats=2 --timeoutMs=90000
+```
+
+Phase 2: Lock baseline
+
+- Freeze winner decision in scorecard.
+- Freeze deterministic fixtures as baseline (`fixtures/algorithm-baseline/`).
+- Keep lock artifacts (`*.assessment.json`, `*.json`, `*.csv`, visuals markdown).
+
+Phase 3: Pivot to fixture-first nightly (no API keys)
+
+- Nightly CI runs deterministic checks only:
+  - `bun run typecheck`
+  - `bun test --recursive`
+  - `bun run compare:legacy`
+- No OpenAI/xAI keys required for this nightly path.
+
+Phase 4: Low-cost live sentinel
+
+- Run live sentinel weekly (or manual), not nightly.
+- Scope: `2` topics, `1` repeat.
+- Command:
+
+```bash
+bun run eval:live --repeats=1 --sources=reddit,x --topics="Bun runtime|TypeScript 5.9" --refresh --timeoutMs=90000 --out=reports/live-compare.sentinel.json --csv=reports/live-compare.sentinel.csv
+```
+
+Re-open full live matrix only when:
+
+- OpenAI/xAI model policy/pin changes,
+- retrieval/scoring/date/dedupe logic changes,
+- sentinel fails twice consecutively,
+- or maintainer explicitly requests a fresh lock reassessment.
+
 ### Local Smoke Tests (Current vs Legacy)
 
 Use live APIs to sanity-check the algorithm “in the wild”. Run locally only.
@@ -361,6 +452,9 @@ Use live APIs to sanity-check the algorithm “in the wild”. Run locally only.
 | `dismiss-stale-bot-reviews.yml` | PR synchronize | Auto-dismiss stale bot CHANGES_REQUESTED reviews |
 | `package-hygiene.yml` | PR | publint + attw package correctness |
 | `workflow-lint.yml` | PR | actionlint on workflow files |
+| `reliability-nightly-fixture.yml` | Daily schedule, manual | Fixture-first confidence checks (no API keys) |
+| `reliability-weekly-sentinel.yml` | Weekly schedule, manual | Low-cost live sentinel matrix (small topic set) |
+| `reliability-nightly.yml` | Manual | Full live matrix reassessment (on demand) |
 
 Runtime support is Bun-only. Release workflows still use Node 24 in CI for npm trusted publishing and Changesets compatibility.
 

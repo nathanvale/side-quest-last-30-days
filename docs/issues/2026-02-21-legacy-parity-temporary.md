@@ -26,3 +26,30 @@ Web parity differences must be explicitly accepted or fixed.
 - Baseline fixtures approved.
 - Local smoke tests are run and acceptable.
 - Legacy compare no longer needed.
+
+## Execution Log
+- Ran `bun run compare:legacy` on 2026-02-23.
+- Report captured at `reports/legacy-compare.json`.
+- Report metadata:
+  - `generated_at`: `2026-02-23T19:15:23.736Z`
+  - `fixture_version`: `v1`
+  - `from_date`: `2026-01-22`
+  - `to_date`: `2026-02-21`
+
+## Parity Review
+- Reddit: clean parity (`top_order_changed=false`, `over_tolerance_count=0`).
+- X: clean parity (`top_order_changed=false`, `over_tolerance_count=0`).
+- Web: parity not clean:
+  - `top_order_changed=true` for `melbourne-events` and `indie-games`.
+  - `over_tolerance_count=27` across all topics.
+  - Topic breakdown:
+    - `ai-assistants`: `order_changed=false`, `over_tol=5`
+    - `rust-runtime`: `order_changed=false`, `over_tol=7`
+    - `melbourne-events`: `order_changed=true`, `over_tol=8`
+    - `e-bike`: `order_changed=false`, `over_tol=4`
+    - `indie-games`: `order_changed=true`, `over_tol=3`
+
+## Decision
+- **Parity decision: rejected (2026-02-23).**
+- Legacy compare harness is retained for now.
+- Follow-up issue created: `docs/issues/2026-02-23-web-parity-remediation.md`.
