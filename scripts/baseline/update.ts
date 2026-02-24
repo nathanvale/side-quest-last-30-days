@@ -354,6 +354,6 @@ const outputDir = join(scriptDir, '..', '..', 'fixtures', 'algorithm-baseline')
 mkdirSync(outputDir, { recursive: true })
 const outPath = join(outputDir, 'v1.json')
 writeFileSync(outPath, `${JSON.stringify(output, null, 2)}\n`)
-execSync(`bunx biome format --write ${outPath}`, { stdio: 'ignore' })
+execSync(`bunx biome format --write "${outPath}"`, { stdio: 'ignore' })
 
 process.stdout.write('Algorithm baseline fixtures updated.\n')

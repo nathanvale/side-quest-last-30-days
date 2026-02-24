@@ -113,7 +113,7 @@ Env vars take precedence over flags when both are set.
 
 ### Search (default command)
 
-```
+```bash
 wots <topic> [options]
 ```
 
