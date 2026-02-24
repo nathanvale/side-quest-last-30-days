@@ -1,4 +1,4 @@
-/** Model auto-selection for last-30-days skill. */
+/** Model auto-selection for wots CLI. */
 
 import * as cache from './cache.js'
 import * as http from './http.js'

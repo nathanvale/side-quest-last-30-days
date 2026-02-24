@@ -1,4 +1,4 @@
-/** Near-duplicate detection for last-30-days skill. */
+/** Near-duplicate detection for wots CLI. */
 
 import type { RedditItem, WebSearchItem, XItem, YouTubeItem } from './schema.js'
 

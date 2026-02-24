@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test'
 
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-
 import {
 	backoffDelay,
 	createReport,
@@ -34,13 +33,13 @@ import {
 	supportsWebSearchFilters,
 	timestampToDate,
 } from '../src/index'
-
 import {
 	getEnrichmentCacheKey,
 	getPhase2CacheKey,
 	getSourceCacheKey,
 	SEARCH_CACHE_SCHEMA_VERSION,
 } from '../src/lib/cache'
+import { EXIT_CONFLICT, EXIT_USAGE } from '../src/lib/exit-codes'
 import { reportFromDict, reportToDict } from '../src/lib/schema'
 
 // ---------------------------------------------------------------------------
@@ -230,7 +229,7 @@ describe('schema', () => {
 
 	test('reportFromDict defaults days to 30 for older serialized payloads', () => {
 		const report = reportFromDict({
-			topic: 'legacy-report',
+			topic: 'older-report',
 			range: { from: '2025-01-01', to: '2025-01-31' },
 			generated_at: '2025-01-31T00:00:00.000Z',
 			mode: 'both',
@@ -305,13 +304,13 @@ describe('render', () => {
 
 	test('getContextPath returns default path when no outdir', () => {
 		const path = getContextPath()
-		expect(path).toContain('last-30-days')
-		expect(path).toEndWith('last-30-days.context.md')
+		expect(path).toContain('wots')
+		expect(path).toEndWith('wots.context.md')
 	})
 
 	test('getContextPath uses outdir when provided', () => {
 		const path = getContextPath('/tmp/custom-outdir')
-		expect(path).toBe('/tmp/custom-outdir/last-30-days.context.md')
+		expect(path).toBe('/tmp/custom-outdir/wots.context.md')
 	})
 })
 
@@ -789,7 +788,7 @@ describe('phase 2 cache keys', () => {
 // ---------------------------------------------------------------------------
 describe('cli', () => {
 	function runCli(args: string[]) {
-		const testHome = '/tmp/last-30-days-test-home'
+		const testHome = '/tmp/wots-test-home'
 		return Bun.spawnSync({
 			cmd: [process.execPath, 'run', 'src/cli.ts', ...args],
 			cwd: process.cwd(),
@@ -828,7 +827,7 @@ describe('cli', () => {
 
 	test('rejects invalid --days value', () => {
 		const result = runCli(['test topic', '--mock', '--days=abc'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		expect(new TextDecoder().decode(result.stderr)).toContain(
 			'--days must be an integer between 1 and 365',
 		)
@@ -836,7 +835,7 @@ describe('cli', () => {
 
 	test('rejects --days=0', () => {
 		const result = runCli(['test topic', '--mock', '--days=0'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		expect(new TextDecoder().decode(result.stderr)).toContain(
 			'--days must be an integer between 1 and 365',
 		)
@@ -844,7 +843,7 @@ describe('cli', () => {
 
 	test('rejects --days=366', () => {
 		const result = runCli(['test topic', '--mock', '--days=366'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		expect(new TextDecoder().decode(result.stderr)).toContain(
 			'--days must be an integer between 1 and 365',
 		)
@@ -852,7 +851,7 @@ describe('cli', () => {
 
 	test('rejects --days with missing value', () => {
 		const result = runCli(['test topic', '--mock', '--days'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		expect(new TextDecoder().decode(result.stderr)).toContain(
 			'--days must be an integer between 1 and 365',
 		)
@@ -904,21 +903,21 @@ describe('cli', () => {
 
 	test('--emit=invalid exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--emit=invalid'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('Invalid --emit')
 	})
 
 	test('--sources=invalid exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--sources=invalid'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('Invalid --sources')
 	})
 
 	test('unknown --flag exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--unknown-flag'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('Unknown flag')
 	})
@@ -955,7 +954,7 @@ describe('cli', () => {
 			expect(result.exitCode).toBe(0)
 			expect(existsSync(join(outdir, 'report.json'))).toBe(true)
 			expect(existsSync(join(outdir, 'report.md'))).toBe(true)
-			expect(existsSync(join(outdir, 'last-30-days.context.md'))).toBe(true)
+			expect(existsSync(join(outdir, 'wots.context.md'))).toBe(true)
 		} finally {
 			rmSync(outdir, { recursive: true, force: true })
 		}
@@ -990,7 +989,7 @@ describe('cli', () => {
 			const result = runCli(['test topic', '--mock', '--emit=path', `--outdir=${outdir}`])
 			expect(result.exitCode).toBe(0)
 			const stdout = new TextDecoder().decode(result.stdout).trim()
-			expect(stdout).toBe(join(outdir, 'last-30-days.context.md'))
+			expect(stdout).toBe(join(outdir, 'wots.context.md'))
 		} finally {
 			rmSync(outdir, { recursive: true, force: true })
 		}
@@ -1000,9 +999,9 @@ describe('cli', () => {
 		const result = runCli(['test topic', '--mock', '--emit=path'])
 		expect(result.exitCode).toBe(0)
 		const stdout = new TextDecoder().decode(result.stdout).trim()
-		// Default path should use ~/.local/share/last-30-days/out/ (under test HOME)
-		expect(stdout).toContain('last-30-days')
-		expect(stdout).toContain('last-30-days.context.md')
+		// Default path should use ~/.local/share/wots/out/ (under test HOME)
+		expect(stdout).toContain('wots')
+		expect(stdout).toContain('wots.context.md')
 		expect(stdout).not.toContain('/tmp/l30d-outdir')
 	})
 
@@ -1043,42 +1042,42 @@ describe('cli', () => {
 
 	test('--strategy=invalid exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--strategy=invalid'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('Invalid --strategy')
 	})
 
 	test('--phase2-budget=0 exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--phase2-budget=0'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--phase2-budget must be an integer')
 	})
 
 	test('--phase2-budget=abc exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--phase2-budget=abc'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--phase2-budget must be an integer')
 	})
 
 	test('--phase2-budget -1 exits with error', () => {
-		const result = runCli(['test topic', '--mock', '--phase2-budget', '-1'])
-		expect(result.exitCode).toBe(1)
+		const result = runCli(['test topic', '--mock', '--phase2-budget=-1'])
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--phase2-budget must be an integer')
 	})
 
 	test('--phase2-budget without value exits with error', () => {
 		const result = runCli(['test topic', '--mock', '--phase2-budget'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--phase2-budget must be an integer')
 	})
 
 	test('watch add rejects empty --every value', () => {
 		const result = runCli(['watch', 'add', `watch-topic-${Date.now()}`, '--every='])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('Invalid --every value')
 	})
@@ -1094,7 +1093,7 @@ describe('cli', () => {
 
 	test('watch history rejects missing value for spaced --limit', () => {
 		const result = runCli(['watch', 'history', 'topic', '--limit'])
-		expect(result.exitCode).toBe(1)
+		expect(result.exitCode).toBe(EXIT_USAGE)
 		const stderr = new TextDecoder().decode(result.stderr)
 		expect(stderr).toContain('--limit must be a positive integer')
 	})
@@ -1118,6 +1117,20 @@ describe('cli', () => {
 		expect(result.exitCode).toBe(0)
 		const output = JSON.parse(new TextDecoder().decode(result.stdout)) as Record<string, unknown>
 		expect(output.youtube).toBeUndefined()
+	})
+
+	test('--quick + --deep exits with EXIT_CONFLICT', () => {
+		const result = runCli(['test topic', '--mock', '--quick', '--deep'])
+		expect(result.exitCode).toBe(EXIT_CONFLICT)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('Cannot use both --quick and --deep')
+	})
+
+	test('--fast + --cheap exits with EXIT_CONFLICT', () => {
+		const result = runCli(['test topic', '--mock', '--fast', '--cheap'])
+		expect(result.exitCode).toBe(EXIT_CONFLICT)
+		const stderr = new TextDecoder().decode(result.stderr)
+		expect(stderr).toContain('Cannot use both --fast and --cheap')
 	})
 })
 

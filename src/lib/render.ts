@@ -1,13 +1,13 @@
-/** Output rendering for last-30-days skill. */
+/** Output rendering for wots CLI. */
 
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-
+import { daysAgo } from './dates.js'
 import type { Report } from './schema.js'
 import { reportToDict } from './schema.js'
 
-const OUTPUT_DIR = join(homedir(), '.local', 'share', 'last-30-days', 'out')
+const OUTPUT_DIR = join(homedir(), '.local', 'share', 'wots', 'out')
 
 /** Assess how much data is actually from the configured date range. */
 function assessDataFreshness(report: Report) {
@@ -41,6 +41,58 @@ function assessDataFreshness(report: Report) {
 		isSparse: totalRecent < 5,
 		mostlyEvergreen: totalItems > 0 && totalRecent < totalItems * 0.3,
 	}
+}
+
+function summarizeFreshness(report: Report) {
+	const items = [
+		...report.reddit,
+		...report.x,
+		...report.web,
+		...report.youtube,
+	]
+	let dated = 0
+	let fresh72h = 0
+	let fresh7d = 0
+
+	for (const item of items) {
+		const age = daysAgo(item.date)
+		if (age == null) continue
+		dated += 1
+		if (age <= 3) fresh72h += 1
+		if (age <= 7) fresh7d += 1
+	}
+
+	const pct = (value: number) =>
+		dated > 0 ? Math.round((value / dated) * 100) : 0
+
+	return {
+		dated,
+		fresh72h,
+		fresh7d,
+		fresh72hPct: pct(fresh72h),
+		fresh7dPct: pct(fresh7d),
+	}
+}
+
+function recencyBadge(date: string | null): string {
+	const age = daysAgo(date)
+	if (age == null) return ''
+	if (age <= 3) return ' [recency:0-3d]'
+	if (age <= 7) return ' [recency:4-7d]'
+	if (age <= 14) return ' [recency:8-14d]'
+	if (age <= 30) return ' [recency:15-30d]'
+	return ' [recency:31d+]'
+}
+
+function momentumBadge(momentum?: number): string {
+	if (momentum == null) return ''
+	const value = Math.round(momentum * 10) / 10
+	return ` [mom:${value}]`
+}
+
+function trendBadge(trendScore?: number): string {
+	if (trendScore == null) return ''
+	return ` [trend:${trendScore}]`
 }
 
 /** Render compact output for Claude to synthesize. */
@@ -79,7 +131,7 @@ export function renderCompact(
 			'- `OPENAI_API_KEY` → Reddit threads with real upvotes & comments',
 		)
 		lines.push('- `XAI_API_KEY` → X posts with real likes & reposts')
-		lines.push('- Edit `~/.config/last-30-days/.env` to add keys')
+		lines.push('- Edit `~/.config/wots/.env` to add keys')
 		lines.push('---')
 		lines.push('')
 	}
@@ -146,9 +198,12 @@ export function renderCompact(
 			const dateStr = item.date ? ` (${item.date})` : ' (date unknown)'
 			const confStr =
 				item.date_confidence !== 'high' ? ` [date:${item.date_confidence}]` : ''
+			const recencyStr = recencyBadge(item.date)
+			const momentumStr = momentumBadge(item.momentum)
+			const trendStr = trendBadge(item.trend_score)
 
 			lines.push(
-				`**${item.id}** (score:${item.score}) r/${item.subreddit}${dateStr}${confStr}${engStr}`,
+				`**${item.id}** (score:${item.score}) r/${item.subreddit}${dateStr}${confStr}${engStr}${recencyStr}${momentumStr}${trendStr}`,
 			)
 			lines.push(`  ${item.title}`)
 			lines.push(`  ${item.url}`)
@@ -191,9 +246,12 @@ export function renderCompact(
 			const dateStr = item.date ? ` (${item.date})` : ' (date unknown)'
 			const confStr =
 				item.date_confidence !== 'high' ? ` [date:${item.date_confidence}]` : ''
+			const recencyStr = recencyBadge(item.date)
+			const momentumStr = momentumBadge(item.momentum)
+			const trendStr = trendBadge(item.trend_score)
 
 			lines.push(
-				`**${item.id}** (score:${item.score}) @${item.author_handle}${dateStr}${confStr}${engStr}`,
+				`**${item.id}** (score:${item.score}) @${item.author_handle}${dateStr}${confStr}${engStr}${recencyStr}${momentumStr}${trendStr}`,
 			)
 			lines.push(`  ${item.text.slice(0, 200)}...`)
 			lines.push(`  ${item.url}`)
@@ -211,9 +269,12 @@ export function renderCompact(
 			const dateStr = item.date ? ` (${item.date})` : ' (date unknown)'
 			const confStr =
 				item.date_confidence !== 'high' ? ` [date:${item.date_confidence}]` : ''
+			const recencyStr = recencyBadge(item.date)
+			const momentumStr = momentumBadge(item.momentum)
+			const trendStr = trendBadge(item.trend_score)
 
 			lines.push(
-				`**${item.id}** [WEB] (score:${item.score}) ${item.source_domain}${dateStr}${confStr}`,
+				`**${item.id}** [WEB] (score:${item.score}) ${item.source_domain}${dateStr}${confStr}${recencyStr}${momentumStr}${trendStr}`,
 			)
 			lines.push(`  ${item.title}`)
 			lines.push(`  ${item.url}`)
@@ -238,15 +299,32 @@ export function renderCompact(
 			const confStr =
 				item.date_confidence !== 'high' ? ` [date:${item.date_confidence}]` : ''
 			const engStr = ` [${item.views.toLocaleString()}views, ${item.likes.toLocaleString()}likes]`
+			const recencyStr = recencyBadge(item.date)
+			const momentumStr = momentumBadge(item.momentum)
+			const trendStr = trendBadge(item.trend_score)
 
 			lines.push(
-				`**${item.id}** [YT] (score:${item.score}) ${item.channel}${dateStr}${confStr}${engStr}`,
+				`**${item.id}** [YT] (score:${item.score}) ${item.channel}${dateStr}${confStr}${engStr}${recencyStr}${momentumStr}${trendStr}`,
 			)
 			lines.push(`  ${item.title}`)
 			lines.push(`  ${item.url}`)
 			lines.push(`  *${item.why_relevant}*`)
 			lines.push('')
 		}
+	}
+
+	const gaps: string[] = []
+	if (report.reddit_error) gaps.push('Reddit error')
+	if (report.x_error) gaps.push('X error')
+	if (report.youtube_error) gaps.push('YouTube error')
+	if (report.mode === 'web-only') gaps.push('Web-only mode')
+	if (freshness.isSparse) gaps.push('Low recent volume')
+	if (freshness.mostlyEvergreen) gaps.push('Mostly evergreen')
+
+	if (gaps.length > 0) {
+		lines.push('### Signal Gaps', '')
+		lines.push(`**Gaps:** ${gaps.join(', ')}`)
+		lines.push('')
 	}
 
 	return lines.join('\n')
@@ -459,10 +537,7 @@ export function writeOutputs(
 		JSON.stringify(reportToDict(report), null, 2),
 	)
 	writeFileSync(join(dir, 'report.md'), renderFullReport(report))
-	writeFileSync(
-		join(dir, 'last-30-days.context.md'),
-		renderContextSnippet(report),
-	)
+	writeFileSync(join(dir, 'wots.context.md'), renderContextSnippet(report))
 
 	if (rawOpenai) {
 		writeFileSync(
@@ -483,5 +558,5 @@ export function writeOutputs(
 
 /** Get path to context file. */
 export function getContextPath(outdir?: string): string {
-	return join(outdir || OUTPUT_DIR, 'last-30-days.context.md')
+	return join(outdir || OUTPUT_DIR, 'wots.context.md')
 }

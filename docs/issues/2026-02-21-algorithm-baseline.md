@@ -24,4 +24,3 @@ Baseline fixtures exist in `fixtures/algorithm-baseline/v1.json`. Snapshot and c
 
 ## Notes
 - Baseline is deterministic (fixed dates, seeded data). No live data used here.
-- Legacy parity is handled separately and is temporary.

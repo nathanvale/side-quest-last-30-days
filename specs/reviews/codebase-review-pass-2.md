@@ -33,4 +33,4 @@ Cached OpenAI model is used blindly (`src/lib/models.ts:41`), cache TTL is long 
 2. Do you have any human-ranked dataset or offline eval that justifies the current scoring constants over simpler `log1p(engagement)` ordering?
 3. How often has model auto-selection actually prevented a real incident versus a pinned model bumped in release PRs?
 4. Which of the 17 workflows have caught real defects in this repo, and which are inherited template policy?
-5. Is any downstream consumer relying on the side-effect files in `~/.local/share/last-30-days/out`, or can output writing be opt-in?
+5. Is any downstream consumer relying on the side-effect files in `~/.local/share/wots/out`, or can output writing be opt-in?

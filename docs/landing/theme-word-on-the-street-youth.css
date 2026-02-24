@@ -1,0 +1,49 @@
+body.theme-youth {
+	--body-font: "DM Sans", sans-serif;
+	--display-font: "Bricolage Grotesque", sans-serif;
+	--mono-font: "Space Mono", monospace;
+	--ink: #111215;
+	--brand-accent: #ff5b4d;
+	--bg: linear-gradient(130deg, #fff2d7 0%, #eaf9f4 45%, #fde2ea 100%);
+	--card-bg: rgba(255, 255, 255, 0.85);
+	--button-fill: #0f1f1d;
+	--button-fill-ink: #fff2d7;
+	--button-border: #0f1f1d;
+	--button-ink: #0f1f1d;
+	--panel-bg: linear-gradient(
+		150deg,
+		rgba(15, 31, 29, 0.98),
+		rgba(10, 24, 38, 0.98)
+	);
+	--panel-glow: radial-gradient(
+		circle at top right,
+		rgba(73, 214, 195, 0.4),
+		transparent 55%
+	);
+	--panel-ink: #fef3d5;
+	--panel-accent: #ffe08a;
+	--panel-muted: rgba(255, 242, 215, 0.8);
+	--cta-bg: linear-gradient(
+		140deg,
+		rgba(255, 91, 77, 0.16),
+		rgba(73, 214, 195, 0.12)
+	);
+	--cta-border: 1px solid rgba(255, 91, 77, 0.28);
+	--footer-ink: #1c2a2a;
+	--border: 1px solid rgba(15, 31, 29, 0.2);
+	--shadow: 0 26px 60px rgba(31, 43, 40, 0.15);
+}
+
+body.theme-youth .hero-copy {
+	backdrop-filter: blur(4px);
+}
+
+body.theme-youth .pulse-item {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+body.theme-youth .cli {
+	background: rgba(255, 255, 255, 0.7);
+	border-color: rgba(15, 31, 29, 0.35);
+}

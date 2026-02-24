@@ -1,4 +1,4 @@
-/** Caching utilities for last-30-days skill. */
+/** Caching utilities for wots CLI. */
 
 import { createHash } from 'node:crypto'
 import {
@@ -17,7 +17,7 @@ import {
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-const CACHE_DIR = join(homedir(), '.cache', 'last-30-days')
+const CACHE_DIR = join(homedir(), '.cache', 'wots')
 const LOCK_DIR = join(CACHE_DIR, 'locks')
 
 const DEFAULT_TTL_HOURS = 24
@@ -53,17 +53,17 @@ function parseHoursEnv(name: string, fallback: number): number {
 
 /** Configured TTL for fresh search cache. */
 export function getSearchTTL(): number {
-	return parseHoursEnv('LAST_30_DAYS_CACHE_TTL', SEARCH_TTL_HOURS)
+	return parseHoursEnv('WOTS_CACHE_TTL', SEARCH_TTL_HOURS)
 }
 
 /** Configured TTL for stale-search fallback cache. */
 export function getStaleSearchTTL(): number {
-	return parseHoursEnv('LAST_30_DAYS_STALE_CACHE_TTL', STALE_SEARCH_TTL_HOURS)
+	return parseHoursEnv('WOTS_STALE_CACHE_TTL', STALE_SEARCH_TTL_HOURS)
 }
 
 /** Configured TTL for enrichment cache. */
 export function getEnrichmentTTL(): number {
-	return parseHoursEnv('LAST_30_DAYS_ENRICH_CACHE_TTL', ENRICH_TTL_HOURS)
+	return parseHoursEnv('WOTS_ENRICH_CACHE_TTL', ENRICH_TTL_HOURS)
 }
 
 /** Generate a cache key from query parameters. */

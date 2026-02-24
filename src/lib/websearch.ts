@@ -1,5 +1,5 @@
 /**
- * WebSearch module for last-30-days skill.
+ * WebSearch module for wots CLI.
  *
  * ARCHITECTURE NOTE: This module provides parsing and normalization for web
  * search results, but the CLI does NOT call these functions directly. Web

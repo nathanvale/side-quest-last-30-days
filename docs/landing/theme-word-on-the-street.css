@@ -1,0 +1,33 @@
+body.theme-editorial {
+	--body-font: "Newsreader", serif;
+	--display-font: "Fraunces", serif;
+	--mono-font: "Inconsolata", monospace;
+	--ink: #111112;
+	--brand-accent: #b1462a;
+	--bg: linear-gradient(120deg, #f6f1e6 0%, #fbf7ef 40%, #ece7dc 100%);
+	--card-bg: rgba(246, 241, 230, 0.78);
+	--button-fill: #221f1b;
+	--button-fill-ink: #f6f1e6;
+	--button-border: #221f1b;
+	--button-ink: #221f1b;
+	--panel-bg: linear-gradient(
+		145deg,
+		rgba(34, 31, 27, 0.95),
+		rgba(17, 17, 18, 0.96)
+	);
+	--panel-glow: radial-gradient(
+		circle at top right,
+		rgba(221, 107, 32, 0.22),
+		transparent 60%
+	);
+	--panel-ink: #f6f1e6;
+	--panel-accent: #e4d6b7;
+	--panel-muted: rgba(245, 237, 222, 0.8);
+	--cta-bg: linear-gradient(
+		135deg,
+		rgba(221, 107, 32, 0.14),
+		rgba(33, 30, 23, 0.08)
+	);
+	--cta-border: 1px solid rgba(177, 70, 42, 0.3);
+	--footer-ink: #2b2e34;
+}

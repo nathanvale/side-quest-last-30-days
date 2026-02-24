@@ -4,7 +4,7 @@
 	"baseBranch": "main",
 	"changelog": [
 		"@changesets/changelog-github",
-		{ "repo": "nathanvale/side-quest-last-30-days" }
+		{ "repo": "nathanvale/side-quest-word-on-the-street" }
 	],
 	"commit": false,
 	"packages": ["."],

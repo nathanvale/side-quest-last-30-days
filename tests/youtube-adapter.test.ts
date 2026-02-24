@@ -13,7 +13,7 @@ describe('buildYouTubeSearchArgs', () => {
 			'--dump-json',
 			'--dateafter',
 			'20260120',
-			'ytsearchdate5:claude code',
+			'ytsearch5:claude code',
 		])
 	})
 
@@ -25,13 +25,13 @@ describe('buildYouTubeSearchArgs', () => {
 			'--dump-json',
 			'--dateafter',
 			'20260212',
-			'ytsearchdate20:bun typescript',
+			'ytsearch20:bun typescript',
 		])
 	})
 
 	test('defaults to 10 results for standard depth', () => {
 		const args = buildYouTubeSearchArgs('hello', 14, 'normal', now)
-		expect(args[5]).toBe('ytsearchdate10:hello')
+		expect(args[5]).toBe('ytsearch10:hello')
 	})
 
 	test('clamps lookback window to 1..365 days', () => {

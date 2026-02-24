@@ -1,4 +1,4 @@
-/** Data schemas for last-30-days skill. */
+/** Data schemas for wots CLI. */
 
 /** Engagement metrics. */
 export interface Engagement {

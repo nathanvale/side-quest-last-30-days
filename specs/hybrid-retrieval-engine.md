@@ -33,7 +33,7 @@ Use these files to complete the task:
 - `src/lib/normalize.ts` -- Normalization of raw API responses. Will be extended for YouTube items.
 - `src/lib/render.ts` -- Output rendering (compact, JSON, md, context, path). Will be extended for YouTube items, trend scores, and briefing output.
 - `src/lib/http.ts` -- HTTP client with retry logic and rate-limit classification. No changes expected.
-- `src/lib/config.ts` -- Env var loading from `~/.config/last-30-days/.env`. May need YouTube-related config.
+- `src/lib/config.ts` -- Env var loading from `~/.config/wots/.env`. May need YouTube-related config.
 - `src/lib/dates.ts` -- Date range math and recency scoring. No changes expected.
 - `src/lib/models.ts` -- Model auto-selection. No changes expected.
 - `src/lib/websearch.ts` -- WebSearch date extraction. No changes expected.
@@ -519,7 +519,7 @@ Persistence layer (watchlist + briefings), observability telemetry, and CI relea
 - Create `src/lib/store.ts`:
   - SQLite-backed persistence using `bun:sqlite` (Bun's built-in SQLite)
   - `initDb()` -- create tables if not exist (watchlist_topics, run_history, run_items)
-  - `getDb()` -- singleton connection to `~/.local/share/last-30-days/research.db`
+  - `getDb()` -- singleton connection to `~/.local/share/wots/research.db`
   - Schema migrations with version tracking
 - Create `src/lib/watchlist.ts`:
   - `addTopic(topic, schedule?)` -- add topic to watchlist with optional recurrence

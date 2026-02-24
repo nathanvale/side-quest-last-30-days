@@ -1,7 +1,7 @@
 /**
- * @side-quest/last-30-days
+ * @side-quest/word-on-the-street
  *
- * Research any topic from the last 30 days across Reddit, X, and web.
+ * Research any topic across Reddit, X, and web.
  * Engagement-ranked results with scoring and deduplication.
  */
 
@@ -27,6 +27,9 @@ export {
 	SEARCH_CACHE_SCHEMA_VERSION,
 	saveCache,
 } from './lib/cache.js'
+// CLI Error
+export type { CliErrorCode, CliErrorOptions } from './lib/cli-error.js'
+export { CliError, errorToEnvelope } from './lib/cli-error.js'
 // Config
 export {
 	getAvailableSources,
@@ -89,6 +92,26 @@ export {
 	trendRecallAtK,
 	watchlistDeltaUtility,
 } from './lib/eval-metrics.js'
+// Exit Codes
+export type { ExitCode } from './lib/exit-codes.js'
+export {
+	EXIT_CONFLICT,
+	EXIT_INTERRUPTED,
+	EXIT_NOT_FOUND,
+	EXIT_OK,
+	EXIT_RUNTIME,
+	EXIT_UNAUTHORIZED,
+	EXIT_USAGE,
+} from './lib/exit-codes.js'
+// Field Projection
+export {
+	parseFieldSpec,
+	projectFields,
+	projectReport,
+} from './lib/field-projection.js'
+// Help
+export type { HelpTopic } from './lib/help.js'
+export { HELP_TOPICS, isValidHelpTopic, renderHelp } from './lib/help.js'
 // HTTP / retry
 export {
 	backoffDelay,
@@ -123,6 +146,34 @@ export {
 	searchReddit,
 	supportsWebSearchFilters,
 } from './lib/openai-reddit.js'
+// Output
+export type {
+	DataEnvelope,
+	ErrorEnvelope,
+	OutputContext,
+} from './lib/output.js'
+export {
+	reportToJsonl,
+	resolveErrorContext,
+	resolveOutputArgs,
+	wrapData,
+	wrapReport,
+	writeError,
+} from './lib/output.js'
+// Parse args
+export type {
+	BriefingCommand,
+	GlobalFlags,
+	HelpCommand,
+	ParseCliError,
+	ParseCliOk,
+	ParseCliResult,
+	ParsedCommand,
+	SearchCommand,
+	VersionCommand,
+	WatchCommand,
+} from './lib/parse-args.js'
+export { parseCliArgs } from './lib/parse-args.js'
 // Reddit enrichment
 export { enrichRedditItem } from './lib/reddit-enrich.js'
 // Rendering

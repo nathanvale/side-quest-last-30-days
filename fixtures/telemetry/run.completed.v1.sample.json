@@ -3,8 +3,8 @@
 	"id": "evt_01hyl30dabc",
 	"timestamp": "2026-02-18T11:12:13.000Z",
 	"type": "l30d.run.completed",
-	"app": "last-30-days",
-	"appRoot": "/Users/nathanvale/code/side-quest-last-30-days",
+	"app": "wots",
+	"appRoot": "/Users/nathanvale/code/side-quest-word-on-the-street",
 	"source": "cli",
 	"correlationId": "a1b2c3d4",
 	"data": {

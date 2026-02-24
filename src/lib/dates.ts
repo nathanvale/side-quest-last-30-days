@@ -1,4 +1,4 @@
-/** Date utilities for last-30-days skill. */
+/** Date utilities for wots CLI. */
 
 /**
  * Get the date range for the last N days.

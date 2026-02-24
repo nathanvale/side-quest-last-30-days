@@ -250,6 +250,6 @@ export interface TelemetryEnvelopeV1<T = unknown> {
 export interface RunCompletedEnvelopeV1
 	extends TelemetryEnvelopeV1<RunCompletedDataV1> {
 	type: 'l30d.run.completed'
-	app: 'last-30-days'
+	app: 'wots'
 	source: 'cli'
 }

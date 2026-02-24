@@ -1,8 +1,8 @@
 {
-	"name": "@side-quest/last-30-days",
+	"name": "@side-quest/word-on-the-street",
 	"version": "0.2.0",
 	"packageManager": "bun@1.3.8",
-	"description": "Research any topic from the last 30 days across Reddit, X, and web — engagement-ranked results",
+	"description": "Research any topic across Reddit, X, and web - engagement-ranked results from a newsroom-style pulse engine",
 	"author": {
 		"name": "Nathan Vale",
 		"url": "https://github.com/nathanvale"
@@ -19,22 +19,23 @@
 		"./package.json": "./package.json"
 	},
 	"bin": {
-		"last-30-days": "./dist/cli.js"
+		"wots": "dist/cli.js"
 	},
 	"files": [
 		"dist/**",
+		"fixtures/**",
 		"README.md",
 		"LICENSE",
 		"CHANGELOG.md"
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/nathanvale/side-quest-last-30-days.git"
+		"url": "git+https://github.com/nathanvale/side-quest-word-on-the-street.git"
 	},
 	"bugs": {
-		"url": "https://github.com/nathanvale/side-quest-last-30-days/issues"
+		"url": "https://github.com/nathanvale/side-quest-word-on-the-street/issues"
 	},
-	"homepage": "https://github.com/nathanvale/side-quest-last-30-days#readme",
+	"homepage": "https://github.com/nathanvale/side-quest-word-on-the-street#readme",
 	"keywords": [
 		"typescript",
 		"bun",
@@ -81,16 +82,10 @@
 		"test:watch": "bun test --watch",
 		"update:baseline": "bun run scripts/baseline/update.ts",
 		"baseline:guard": "bun run scripts/baseline/guard.ts",
-		"compare:legacy": "bun run scripts/baseline/compare-legacy.ts --out=reports/legacy-compare.json",
 		"eval": "bun run scripts/eval/run.ts",
-		"eval:reddit:debug": "bun run scripts/eval/reddit-drop-debug.ts",
 		"eval:pr": "bun run scripts/eval/run.ts --mode=pr",
 		"eval:full": "bun run scripts/eval/run.ts --mode=full",
 		"eval:baseline:update": "bun run scripts/eval/run.ts --mode=baseline-update",
-		"eval:live": "bun run scripts/eval/live-compare.ts",
-		"eval:matrix": "bun run scripts/eval/reliability-matrix.ts",
-		"eval:lock:check": "bun run scripts/eval/check-lock-gates.ts",
-		"eval:lock:visuals": "bun run scripts/eval/render-lock-visuals.ts",
 		"telemetry:validate": "bun run scripts/telemetry/validate-fixture.ts",
 		"typecheck": "tsc -p tsconfig.eslint.json --noEmit",
 		"validate": "bun run lint && bun run typecheck && bun run build && TF_BUILD=true bun run test",

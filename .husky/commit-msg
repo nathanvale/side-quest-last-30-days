@@ -1,2 +1,2 @@
 # Enforce Conventional Commits via commitlint (low-friction: clear errors, no history scan)
-pnpm exec commitlint --edit "$1"
+bunx --bun commitlint --edit "$1"

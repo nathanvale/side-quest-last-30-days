@@ -9,6 +9,7 @@ import {
 	normalizeXItems,
 	normalizeYouTubeItems,
 } from '../src/lib/normalize.js'
+import { parseRedditResponse } from '../src/lib/openai-reddit.js'
 import { defaultRedditItem, defaultWebSearchItem, defaultYouTubeItem } from '../src/lib/schema.js'
 import { scoreRedditItems, scoreWebsearchItems } from '../src/lib/score.js'
 import type { TrendScore } from '../src/lib/trend.js'
@@ -50,6 +51,12 @@ function loadNormalizeFixture() {
 		youtube: Record<string, unknown>[]
 		web: Record<string, unknown>[]
 	}
+}
+
+function loadOpenaiEdgeFixture() {
+	const testDir = dirname(fileURLToPath(import.meta.url))
+	const fixturePath = join(testDir, '..', 'fixtures', 'openai_edge_cases.json')
+	return JSON.parse(readFileSync(fixturePath, 'utf-8')) as Record<string, unknown>
 }
 
 describe('algorithm contracts', () => {
@@ -282,5 +289,16 @@ describe('algorithm contracts', () => {
 		const filtered = filterByDateRange(items, '2026-01-22', '2026-02-21', true)
 		expect(filtered.length).toBe(1)
 		expect(filtered[0]!.id).toBe('in-range')
+	})
+
+	test('edge-case Reddit parsing feeds normalization safely', () => {
+		const raw = loadOpenaiEdgeFixture()
+		const parsed = parseRedditResponse(raw)
+		const normalized = normalizeRedditItems(parsed, '2026-01-25', '2026-02-24')
+		const missingSub = normalized.find((item) => item.title === 'Missing Subreddit')
+		expect(missingSub).toBeDefined()
+		expect(missingSub!.subreddit).toBe('')
+		expect(missingSub!.date).toBeNull()
+		expect(missingSub!.date_confidence).toBe('low')
 	})
 })
