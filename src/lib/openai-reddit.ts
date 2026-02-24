@@ -19,6 +19,8 @@ const DEPTH_CONFIG: Record<string, [number, number]> = {
 
 const REDDIT_SEARCH_PROMPT = `Find Reddit discussion threads about: {topic}
 
+Target date window (UTC): {from_date} to {to_date}
+
 STEP 1: EXTRACT THE CORE SUBJECT
 Get the MAIN NOUN/PRODUCT/TOPIC:
 - "best nano banana prompting practices" → "nano banana"
@@ -31,14 +33,15 @@ Search for the core subject:
 1. "[core subject] site:reddit.com"
 2. "reddit [core subject]"
 3. "[core subject] reddit"
+4. "[core subject] {from_date}..{to_date}"
 
 Return as many relevant threads as you find. We filter by date server-side.
 
 STEP 3: INCLUDE ALL MATCHES
-- Include ALL threads about the core subject
+- ONLY include threads within {from_date} to {to_date} when date is known
+- If a thread is clearly older than {from_date}, exclude it
 - Set date to "YYYY-MM-DD" if you can determine it, otherwise null
-- We verify dates and filter old content server-side
-- DO NOT pre-filter aggressively - include anything relevant
+- If date is unknown but thread appears current, you may include it with null date
 
 REQUIRED: URLs must contain "/r/" AND "/comments/"
 REJECT: developers.reddit.com, business.reddit.com

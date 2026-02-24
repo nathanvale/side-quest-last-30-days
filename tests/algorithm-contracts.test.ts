@@ -239,4 +239,48 @@ describe('algorithm contracts', () => {
 		expect(filtered.length).toBe(1)
 		expect(filtered[0]!.id).toBe('in-range')
 	})
+
+	test('filterByDateRange keeps null-date items by default', () => {
+		const items = [
+			defaultRedditItem({
+				id: 'null-date',
+				title: 'Null date',
+				url: 'https://reddit.com/r/test/null-date',
+				subreddit: 'test',
+				date: null,
+			}),
+			defaultRedditItem({
+				id: 'out-range',
+				title: 'Out range',
+				url: 'https://reddit.com/r/test/out-range-2',
+				subreddit: 'test',
+				date: '2025-12-01',
+			}),
+		]
+		const filtered = filterByDateRange(items, '2026-01-22', '2026-02-21')
+		expect(filtered.length).toBe(1)
+		expect(filtered[0]!.id).toBe('null-date')
+	})
+
+	test('filterByDateRange can require explicit dates', () => {
+		const items = [
+			defaultRedditItem({
+				id: 'null-date',
+				title: 'Null date required',
+				url: 'https://reddit.com/r/test/null-date-required',
+				subreddit: 'test',
+				date: null,
+			}),
+			defaultRedditItem({
+				id: 'in-range',
+				title: 'In range explicit',
+				url: 'https://reddit.com/r/test/in-range-explicit',
+				subreddit: 'test',
+				date: '2026-02-10',
+			}),
+		]
+		const filtered = filterByDateRange(items, '2026-01-22', '2026-02-21', true)
+		expect(filtered.length).toBe(1)
+		expect(filtered[0]!.id).toBe('in-range')
+	})
 })
