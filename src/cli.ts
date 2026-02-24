@@ -546,6 +546,40 @@ async function searchRedditTask(
 		}
 	}
 
+	// Recency rescue:
+	// If all parsed dates are clearly before the requested range, run one extra
+	// query biased toward the explicit date window and merge new URLs.
+	const allKnownDatesAreBeforeRange =
+		items.length > 0 &&
+		items.every((item) => {
+			const d = item.date
+			return (
+				typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < fromDate
+			)
+		})
+
+	if (allKnownDatesAreBeforeRange && !mock && !error && !rateLimited) {
+		const core = extractCoreSubject(topic)
+		const recencyTopic = `${core} ${fromDate}..${toDate} latest`
+		try {
+			const recencyRaw = await searchReddit(
+				cfg.OPENAI_API_KEY!,
+				selectedModels.openai!,
+				recencyTopic,
+				fromDate,
+				toDate,
+				depth,
+			)
+			const recencyItems = parseRedditResponse(recencyRaw)
+			const existingUrls = new Set(items.map((i) => i.url))
+			for (const item of recencyItems) {
+				if (!existingUrls.has(item.url)) items.push(item)
+			}
+		} catch {
+			// ignore recency rescue errors
+		}
+	}
+
 	// Write through to cache on success (unless disabled)
 	if (!mock && !cacheOpts.skipWrite && !error && items.length > 0) {
 		saveCache(cacheKey, { items, raw })
@@ -1330,9 +1364,25 @@ async function main() {
 		toDate,
 	)
 
-	const filteredReddit = filterByDateRange(normalizedReddit, fromDate, toDate)
+	let filteredReddit = filterByDateRange(normalizedReddit, fromDate, toDate)
 	const filteredX = filterByDateRange(normalizedX, fromDate, toDate)
 	const filteredYouTube = filterByDateRange(normalizedYouTube, fromDate, toDate)
+
+	// Reliability fallback:
+	// If strict date filtering removes all Reddit items, retain one best-effort
+	// item so live runs don't collapse to zero. Prefer null-date items first
+	// (unknown freshness), otherwise keep the newest known-date item.
+	if (filteredReddit.length === 0 && normalizedReddit.length > 0) {
+		const nullDateItems = normalizedReddit.filter((item) => item.date == null)
+		if (nullDateItems.length > 0) {
+			filteredReddit = [nullDateItems[0]!]
+		} else {
+			const byDateDesc = [...normalizedReddit].sort((a, b) =>
+				String(b.date ?? '').localeCompare(String(a.date ?? '')),
+			)
+			filteredReddit = [byDateDesc[0]!]
+		}
+	}
 
 	const trendScores = computeTrendScores([
 		...filteredReddit,

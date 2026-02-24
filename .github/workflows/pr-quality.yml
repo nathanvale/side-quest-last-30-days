@@ -175,6 +175,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Algorithm baseline guard
+        run: bun run baseline:guard
+
       - name: Quality Check (since origin/main)
         run: bun run quality-check:ci
         env:

@@ -260,6 +260,74 @@ The architecture naturally extends in a few directions:
 - **Better engagement verification**: X posts currently use LLM-reported metrics (no free public JSON endpoint like Reddit has). If X's API becomes accessible, enrichment would close that accuracy gap.
 - **Smarter deduplication**: The Jaccard similarity on character trigrams works well for near-identical posts but misses semantic duplicates (same discussion, different words). An embedding-based approach could catch those.
 
+### Local Smoke Tests (Current vs Legacy)
+
+When we need confidence “in the wild”, we run local smoke tests against live APIs (current repo vs legacy repo) using the same topics and date window.
+
+1. Choose 3–5 active topics (example: Bun 1.3 features, React Server Components security fixes, Node.js 24/25 release changes).
+2. Run current repo for each topic (same date window): `last-30-days "Bun 1.3 features" --emit=json --include-web`.
+3. Run legacy repo for the same topics and flags.
+4. Save outputs to `reports/smoke/current/` and `reports/smoke/legacy/`.
+5. Compare top‑10 overlap and any obvious ranking regressions.
+
+### Lock Runbook (Scenario Guide)
+
+Lock decisions follow a two-gate model:
+
+1. Deterministic gate:
+   - `bun run typecheck`
+   - `bun test --recursive`
+   - `bun run compare:legacy`
+2. Live reliability gate (for runtime/retrieval-impacting changes):
+   - `bun run eval:matrix --topicLimit=10 --repeats=1 --timeoutMs=45000`
+   - Optional stricter pass: `--repeats=3 --timeoutMs=60000`
+
+If Reddit collapses from found threads to final zero, run:
+
+- `bun run eval:reddit:debug --topic="React Server Components vulnerability" --days=30`
+
+Scenario expectations:
+
+- OpenAI/xAI model changes:
+  - Must pass deterministic + live reliability gates before lock.
+- Algorithm refactors (normalize/score/dedupe/date/trend):
+  - Must update baseline snapshots (`bun run update:baseline`) and pass both gates.
+- Reliability-only work (retry/cache/timeout/backoff):
+  - Must pass deterministic gate and show non-regressive matrix gates.
+- Telemetry/reporting-only refactors:
+  - Deterministic gate required; live gate recommended.
+
+Lock status of record is tracked in:
+
+- `docs/issues/2026-02-23-algorithm-winner-scorecard.md`
+
+### Live -> Fixture Transition (Confidence Without Ongoing Spend)
+
+Use a phased approach:
+
+1. Burn-in live reliability (short, time-boxed):
+   - Run live matrix nightly.
+   - Stop when we hit `7` consecutive passes or `10` total passes.
+   - Command: `bun run eval:matrix --topicLimit=10 --repeats=2 --timeoutMs=90000`
+2. Lock:
+   - Record winner and gate outcomes in scorecard.
+   - Freeze deterministic fixtures and baseline snapshots.
+3. Pivot to fixture-first nightly:
+   - Nightly CI runs deterministic checks only (`typecheck`, `test`, `compare:legacy`).
+   - No OpenAI/xAI keys required in the default nightly path.
+4. Keep low-cost live sentinel:
+   - Weekly (or manual), `2` topics, `1` repeat.
+   - Command: `bun run eval:live --repeats=1 --sources=reddit,x --topics="Bun runtime|TypeScript 5.9" --refresh --timeoutMs=90000`
+   - CI workflow: `reliability-weekly-sentinel.yml`
+
+Operational workflow split:
+
+- `reliability-nightly-fixture.yml`: daily fixture checks (no OpenAI/xAI cost).
+- `reliability-weekly-sentinel.yml`: weekly low-cost live sentinel.
+- `reliability-nightly.yml`: full live matrix reassessment, manual dispatch only.
+
+Re-open full live matrix only for model/prompt/algorithm changes, repeated sentinel failures, or explicit lock re-evaluation.
+
 ---
 
 ## Final Thoughts
