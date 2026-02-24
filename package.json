@@ -1,6 +1,6 @@
 {
 	"name": "@side-quest/word-on-the-street",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"packageManager": "bun@1.3.8",
 	"description": "Research any topic across Reddit, X, and web - engagement-ranked results from a newsroom-style pulse engine",
 	"author": {
