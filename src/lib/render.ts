@@ -124,6 +124,10 @@ function renderRateLimitBlock(
 		source === 'reddit'
 			? report.reddit_rate_limit_reset_ms
 			: report.x_rate_limit_reset_ms
+	const retryAfterMs =
+		source === 'reddit'
+			? report.reddit_rate_limit_retry_after_ms
+			: report.x_rate_limit_retry_after_ms
 	const usedStale =
 		source === 'reddit'
 			? report.reddit_used_stale_cache
@@ -135,6 +139,8 @@ function renderRateLimitBlock(
 	if (errorCode) lines.push(`**${source}_error_code:** ${errorCode}`)
 	const resetStr = formatResetTime(resetMs)
 	if (resetStr) lines.push(`**${source}_rate_limit_reset:** ${resetStr}`)
+	const retryAfterStr = formatResetTime(retryAfterMs)
+	if (retryAfterStr) lines.push(`**${source}_retry_after:** ${retryAfterStr}`)
 	if (usedStale) {
 		const ageStr = report.cache_age_hours
 			? `age: ${report.cache_age_hours.toFixed(1)}h`

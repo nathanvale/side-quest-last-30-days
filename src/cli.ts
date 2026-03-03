@@ -174,6 +174,7 @@ interface SearchTaskResult {
 	rateLimitType: 'transient' | 'quota' | null
 	rateLimitErrorCode: string | null
 	rateLimitResetMs: number | null
+	rateLimitRetryAfterMs: number | null
 	rateLimitRetries: number | null
 }
 
@@ -182,11 +183,13 @@ const NO_RATE_LIMIT: Pick<
 	| 'rateLimitType'
 	| 'rateLimitErrorCode'
 	| 'rateLimitResetMs'
+	| 'rateLimitRetryAfterMs'
 	| 'rateLimitRetries'
 > = {
 	rateLimitType: null,
 	rateLimitErrorCode: null,
 	rateLimitResetMs: null,
+	rateLimitRetryAfterMs: null,
 	rateLimitRetries: null,
 }
 
@@ -281,6 +284,7 @@ async function searchRedditTask(
 	let rateLimitType: 'transient' | 'quota' | null = null
 	let rateLimitErrorCode: string | null = null
 	let rateLimitResetMs: number | null = null
+	let rateLimitRetryAfterMs: number | null = null
 	let rateLimitRetries: number | null = null
 
 	try {
@@ -303,6 +307,7 @@ async function searchRedditTask(
 			rateLimitType = e.retryable ? 'transient' : 'quota'
 			rateLimitErrorCode = e.error_code
 			rateLimitResetMs = e.ratelimit_reset_ms
+			rateLimitRetryAfterMs = e.retry_after_ms
 			rateLimitRetries = e.retries_attempted
 			error = e.retryable
 				? `Rate limited after ${e.retries_attempted} retries`
@@ -325,6 +330,7 @@ async function searchRedditTask(
 						rateLimitType,
 						rateLimitErrorCode,
 						rateLimitResetMs,
+						rateLimitRetryAfterMs,
 						rateLimitRetries,
 					}
 				}
@@ -413,6 +419,7 @@ async function searchRedditTask(
 		rateLimitType,
 		rateLimitErrorCode,
 		rateLimitResetMs,
+		rateLimitRetryAfterMs,
 		rateLimitRetries,
 	}
 }
@@ -487,6 +494,7 @@ async function searchXTask(
 	let rateLimitType: 'transient' | 'quota' | null = null
 	let rateLimitErrorCode: string | null = null
 	let rateLimitResetMs: number | null = null
+	let rateLimitRetryAfterMs: number | null = null
 	let rateLimitRetries: number | null = null
 
 	try {
@@ -509,6 +517,7 @@ async function searchXTask(
 			rateLimitType = e.retryable ? 'transient' : 'quota'
 			rateLimitErrorCode = e.error_code
 			rateLimitResetMs = e.ratelimit_reset_ms
+			rateLimitRetryAfterMs = e.retry_after_ms
 			rateLimitRetries = e.retries_attempted
 			error = e.retryable
 				? `Rate limited after ${e.retries_attempted} retries`
@@ -531,6 +540,7 @@ async function searchXTask(
 						rateLimitType,
 						rateLimitErrorCode,
 						rateLimitResetMs,
+						rateLimitRetryAfterMs,
 						rateLimitRetries,
 					}
 				}
@@ -560,6 +570,7 @@ async function searchXTask(
 		rateLimitType,
 		rateLimitErrorCode,
 		rateLimitResetMs,
+		rateLimitRetryAfterMs,
 		rateLimitRetries,
 	}
 }
@@ -1249,10 +1260,14 @@ async function main() {
 		taskResults.reddit?.rateLimitErrorCode ?? null
 	report.reddit_rate_limit_reset_ms =
 		taskResults.reddit?.rateLimitResetMs ?? null
+	report.reddit_rate_limit_retry_after_ms =
+		taskResults.reddit?.rateLimitRetryAfterMs ?? null
 	report.reddit_used_stale_cache = taskResults.reddit?.usedStaleCache ?? false
 	report.x_rate_limit_type = taskResults.x?.rateLimitType ?? null
 	report.x_rate_limit_error_code = taskResults.x?.rateLimitErrorCode ?? null
 	report.x_rate_limit_reset_ms = taskResults.x?.rateLimitResetMs ?? null
+	report.x_rate_limit_retry_after_ms =
+		taskResults.x?.rateLimitRetryAfterMs ?? null
 	report.x_used_stale_cache = taskResults.x?.usedStaleCache ?? false
 	report.from_cache = anyFromCache
 	report.cache_age_hours = maxCacheAge
