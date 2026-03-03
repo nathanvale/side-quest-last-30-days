@@ -262,6 +262,7 @@ describe('schema', () => {
 		report.reddit_rate_limit_retry_after_ms = 3000
 		report.reddit_rate_limit_retries_attempted = 5
 		report.reddit_used_stale_cache = true
+		report.reddit_cache_age_hours = 1.25
 		// x fields left at defaults (null/false)
 		const dict = reportToDict(report)
 		expect(dict.reddit_rate_limit_type).toBe('transient')
@@ -270,6 +271,7 @@ describe('schema', () => {
 		expect(dict.reddit_rate_limit_retry_after_ms).toBe(3000)
 		expect(dict.reddit_rate_limit_retries_attempted).toBe(5)
 		expect(dict.reddit_used_stale_cache).toBe(true)
+		expect(dict.reddit_cache_age_hours).toBe(1.25)
 		// x fields should be absent (conditional inclusion)
 		expect(dict.x_rate_limit_type).toBeUndefined()
 		expect(dict.x_rate_limit_error_code).toBeUndefined()
@@ -277,6 +279,7 @@ describe('schema', () => {
 		expect(dict.x_rate_limit_retry_after_ms).toBeUndefined()
 		expect(dict.x_rate_limit_retries_attempted).toBeUndefined()
 		expect(dict.x_used_stale_cache).toBeUndefined()
+		expect(dict.x_cache_age_hours).toBeUndefined()
 	})
 
 	test('reportFromDict defaults missing rate-limit fields for backward compat', () => {
@@ -295,12 +298,14 @@ describe('schema', () => {
 		expect(report.reddit_rate_limit_retry_after_ms).toBeNull()
 		expect(report.reddit_rate_limit_retries_attempted).toBeNull()
 		expect(report.reddit_used_stale_cache).toBe(false)
+		expect(report.reddit_cache_age_hours).toBeNull()
 		expect(report.x_rate_limit_type).toBeNull()
 		expect(report.x_rate_limit_error_code).toBeNull()
 		expect(report.x_rate_limit_reset_ms).toBeNull()
 		expect(report.x_rate_limit_retry_after_ms).toBeNull()
 		expect(report.x_rate_limit_retries_attempted).toBeNull()
 		expect(report.x_used_stale_cache).toBe(false)
+		expect(report.x_cache_age_hours).toBeNull()
 	})
 })
 
@@ -384,9 +389,21 @@ describe('render', () => {
 		report.x_error = 'Rate limited after 3 retries'
 		report.x_rate_limit_type = 'transient'
 		report.x_used_stale_cache = true
-		report.cache_age_hours = 2.5
+		report.x_cache_age_hours = 2.5
 		const output = renderCompact(report)
 		expect(output).toContain('**x_fallback:** stale_cache (age: 2.5h)')
+	})
+
+	test('renderCompact uses source-specific cache age and shows 0.0h', () => {
+		const report = createReport('testing', '2025-01-01', '2025-01-31', 'both')
+		report.reddit_error = 'Rate limited after 2 retries'
+		report.reddit_rate_limit_type = 'transient'
+		report.reddit_used_stale_cache = true
+		report.reddit_cache_age_hours = 0
+		report.cache_age_hours = 9.9
+		const output = renderCompact(report)
+		expect(output).toContain('**reddit_fallback:** stale_cache (age: 0.0h)')
+		expect(output).not.toContain('age: 9.9h')
 	})
 
 	test('renderCompact preserves plain ERROR for non-rate-limit errors', () => {
@@ -1222,12 +1239,14 @@ describe('cli', () => {
 		expect(output.reddit_rate_limit_retry_after_ms).toBeUndefined()
 		expect(output.reddit_rate_limit_retries_attempted).toBeUndefined()
 		expect(output.reddit_used_stale_cache).toBeUndefined()
+		expect(output.reddit_cache_age_hours).toBeUndefined()
 		expect(output.x_rate_limit_type).toBeUndefined()
 		expect(output.x_rate_limit_error_code).toBeUndefined()
 		expect(output.x_rate_limit_reset_ms).toBeUndefined()
 		expect(output.x_rate_limit_retry_after_ms).toBeUndefined()
 		expect(output.x_rate_limit_retries_attempted).toBeUndefined()
 		expect(output.x_used_stale_cache).toBeUndefined()
+		expect(output.x_cache_age_hours).toBeUndefined()
 	})
 
 	test('--quick + --deep exits with EXIT_CONFLICT', () => {

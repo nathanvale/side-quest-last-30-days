@@ -1265,6 +1265,7 @@ async function main() {
 	report.reddit_rate_limit_retries_attempted =
 		taskResults.reddit?.rateLimitRetries ?? null
 	report.reddit_used_stale_cache = taskResults.reddit?.usedStaleCache ?? false
+	report.reddit_cache_age_hours = taskResults.reddit?.cacheAgeHours ?? null
 	report.x_rate_limit_type = taskResults.x?.rateLimitType ?? null
 	report.x_rate_limit_error_code = taskResults.x?.rateLimitErrorCode ?? null
 	report.x_rate_limit_reset_ms = taskResults.x?.rateLimitResetMs ?? null
@@ -1273,6 +1274,7 @@ async function main() {
 	report.x_rate_limit_retries_attempted =
 		taskResults.x?.rateLimitRetries ?? null
 	report.x_used_stale_cache = taskResults.x?.usedStaleCache ?? false
+	report.x_cache_age_hours = taskResults.x?.cacheAgeHours ?? null
 	report.from_cache = anyFromCache
 	report.cache_age_hours = maxCacheAge
 	report.context_snippet_md = renderContextSnippet(report)

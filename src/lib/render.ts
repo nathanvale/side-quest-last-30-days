@@ -136,6 +136,10 @@ function renderRateLimitBlock(
 		source === 'reddit'
 			? report.reddit_used_stale_cache
 			: report.x_used_stale_cache
+	const cacheAgeHours =
+		source === 'reddit'
+			? report.reddit_cache_age_hours
+			: report.x_cache_age_hours
 
 	const lines: string[] = []
 	lines.push(`**${source}_rate_limit_type:** ${type}`)
@@ -153,9 +157,8 @@ function renderRateLimitBlock(
 			`**${source}_rate_limit_retries_attempted:** ${retriesAttempted}`,
 		)
 	if (usedStale) {
-		const ageStr = report.cache_age_hours
-			? `age: ${report.cache_age_hours.toFixed(1)}h`
-			: ''
+		const ageStr =
+			cacheAgeHours != null ? `age: ${cacheAgeHours.toFixed(1)}h` : ''
 		lines.push(
 			`**${source}_fallback:** stale_cache${ageStr ? ` (${ageStr})` : ''}`,
 		)

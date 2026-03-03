@@ -131,12 +131,14 @@ export interface Report {
 	reddit_rate_limit_retry_after_ms: number | null
 	reddit_rate_limit_retries_attempted: number | null
 	reddit_used_stale_cache: boolean
+	reddit_cache_age_hours: number | null
 	x_rate_limit_type: 'transient' | 'quota' | null
 	x_rate_limit_error_code: string | null
 	x_rate_limit_reset_ms: number | null
 	x_rate_limit_retry_after_ms: number | null
 	x_rate_limit_retries_attempted: number | null
 	x_used_stale_cache: boolean
+	x_cache_age_hours: number | null
 	from_cache: boolean
 	cache_age_hours: number | null
 }
@@ -199,6 +201,8 @@ export function reportToDict(report: Report): Record<string, unknown> {
 			report.reddit_rate_limit_retries_attempted
 	if (report.reddit_used_stale_cache)
 		d.reddit_used_stale_cache = report.reddit_used_stale_cache
+	if (report.reddit_cache_age_hours != null)
+		d.reddit_cache_age_hours = report.reddit_cache_age_hours
 	if (report.x_rate_limit_type) d.x_rate_limit_type = report.x_rate_limit_type
 	if (report.x_rate_limit_error_code)
 		d.x_rate_limit_error_code = report.x_rate_limit_error_code
@@ -210,6 +214,8 @@ export function reportToDict(report: Report): Record<string, unknown> {
 		d.x_rate_limit_retries_attempted = report.x_rate_limit_retries_attempted
 	if (report.x_used_stale_cache)
 		d.x_used_stale_cache = report.x_used_stale_cache
+	if (report.x_cache_age_hours != null)
+		d.x_cache_age_hours = report.x_cache_age_hours
 	if (report.from_cache) d.from_cache = report.from_cache
 	if (report.cache_age_hours != null) d.cache_age_hours = report.cache_age_hours
 	return d
@@ -346,12 +352,14 @@ export function createReport(
 		reddit_rate_limit_retry_after_ms: null,
 		reddit_rate_limit_retries_attempted: null,
 		reddit_used_stale_cache: false,
+		reddit_cache_age_hours: null,
 		x_rate_limit_type: null,
 		x_rate_limit_error_code: null,
 		x_rate_limit_reset_ms: null,
 		x_rate_limit_retry_after_ms: null,
 		x_rate_limit_retries_attempted: null,
 		x_used_stale_cache: false,
+		x_cache_age_hours: null,
 		from_cache: false,
 		cache_age_hours: null,
 	}
@@ -478,6 +486,8 @@ export function reportFromDict(data: Record<string, unknown>): Report {
 			(data.reddit_rate_limit_retries_attempted as number | null) ?? null,
 		reddit_used_stale_cache:
 			(data.reddit_used_stale_cache as boolean | undefined) ?? false,
+		reddit_cache_age_hours:
+			(data.reddit_cache_age_hours as number | null) ?? null,
 		x_rate_limit_type:
 			(data.x_rate_limit_type as 'transient' | 'quota' | null) ?? null,
 		x_rate_limit_error_code:
@@ -490,6 +500,7 @@ export function reportFromDict(data: Record<string, unknown>): Report {
 			(data.x_rate_limit_retries_attempted as number | null) ?? null,
 		x_used_stale_cache:
 			(data.x_used_stale_cache as boolean | undefined) ?? false,
+		x_cache_age_hours: (data.x_cache_age_hours as number | null) ?? null,
 		from_cache: (data.from_cache as boolean | undefined) ?? false,
 		cache_age_hours: (data.cache_age_hours as number | null) ?? null,
 	}
