@@ -95,6 +95,57 @@ function trendBadge(trendScore?: number): string {
 	return ` [trend:${trendScore}]`
 }
 
+/** Format milliseconds into a human-readable reset time (e.g. "45s", "2m30s"). */
+function formatResetTime(ms: number | null): string | null {
+	if (ms == null || ms <= 0) return null
+	const totalSec = Math.ceil(ms / 1000)
+	if (totalSec < 60) return `${totalSec}s`
+	const min = Math.floor(totalSec / 60)
+	const sec = totalSec % 60
+	return sec > 0 ? `${min}m${sec}s` : `${min}m`
+}
+
+/** Render structured rate-limit diagnostics for a source. */
+function renderRateLimitBlock(
+	source: 'reddit' | 'x',
+	report: Report,
+): string[] | null {
+	const type =
+		source === 'reddit'
+			? report.reddit_rate_limit_type
+			: report.x_rate_limit_type
+	if (!type) return null
+
+	const errorCode =
+		source === 'reddit'
+			? report.reddit_rate_limit_error_code
+			: report.x_rate_limit_error_code
+	const resetMs =
+		source === 'reddit'
+			? report.reddit_rate_limit_reset_ms
+			: report.x_rate_limit_reset_ms
+	const usedStale =
+		source === 'reddit'
+			? report.reddit_used_stale_cache
+			: report.x_used_stale_cache
+
+	const lines: string[] = []
+	lines.push(`**${source}_status:** rate_limited`)
+	lines.push(`**${source}_rate_limit_type:** ${type}`)
+	if (errorCode) lines.push(`**${source}_error_code:** ${errorCode}`)
+	const resetStr = formatResetTime(resetMs)
+	if (resetStr) lines.push(`**${source}_rate_limit_reset:** ${resetStr}`)
+	if (usedStale) {
+		const ageStr = report.cache_age_hours
+			? `age: ${report.cache_age_hours.toFixed(1)}h`
+			: ''
+		lines.push(
+			`**${source}_fallback:** stale_cache${ageStr ? ` (${ageStr})` : ''}`,
+		)
+	}
+	return lines
+}
+
 /** Render compact output for Claude to synthesize. */
 export function renderCompact(
 	report: Report,
@@ -168,12 +219,17 @@ export function renderCompact(
 
 	// Reddit items
 	if (report.reddit_error) {
-		lines.push(
-			'### Reddit Threads',
-			'',
-			`**ERROR:** ${report.reddit_error}`,
-			'',
-		)
+		const rlBlock = renderRateLimitBlock('reddit', report)
+		if (rlBlock) {
+			lines.push('### Reddit Threads', '', ...rlBlock, '')
+		} else {
+			lines.push(
+				'### Reddit Threads',
+				'',
+				`**ERROR:** ${report.reddit_error}`,
+				'',
+			)
+		}
 	} else if (
 		['both', 'reddit-only'].includes(report.mode) &&
 		report.reddit.length === 0
@@ -221,7 +277,12 @@ export function renderCompact(
 
 	// X items
 	if (report.x_error) {
-		lines.push('### X Posts', '', `**ERROR:** ${report.x_error}`, '')
+		const rlBlock = renderRateLimitBlock('x', report)
+		if (rlBlock) {
+			lines.push('### X Posts', '', ...rlBlock, '')
+		} else {
+			lines.push('### X Posts', '', `**ERROR:** ${report.x_error}`, '')
+		}
 	} else if (
 		['both', 'x-only', 'all', 'x-web'].includes(report.mode) &&
 		report.x.length === 0
