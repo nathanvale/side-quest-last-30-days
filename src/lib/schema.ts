@@ -201,7 +201,7 @@ export function reportToDict(report: Report): Record<string, unknown> {
 			report.reddit_rate_limit_retries_attempted
 	if (report.reddit_used_stale_cache)
 		d.reddit_used_stale_cache = report.reddit_used_stale_cache
-	if (report.reddit_cache_age_hours != null)
+	if (report.reddit_used_stale_cache && report.reddit_cache_age_hours != null)
 		d.reddit_cache_age_hours = report.reddit_cache_age_hours
 	if (report.x_rate_limit_type) d.x_rate_limit_type = report.x_rate_limit_type
 	if (report.x_rate_limit_error_code)
@@ -214,7 +214,7 @@ export function reportToDict(report: Report): Record<string, unknown> {
 		d.x_rate_limit_retries_attempted = report.x_rate_limit_retries_attempted
 	if (report.x_used_stale_cache)
 		d.x_used_stale_cache = report.x_used_stale_cache
-	if (report.x_cache_age_hours != null)
+	if (report.x_used_stale_cache && report.x_cache_age_hours != null)
 		d.x_cache_age_hours = report.x_cache_age_hours
 	if (report.from_cache) d.from_cache = report.from_cache
 	if (report.cache_age_hours != null) d.cache_age_hours = report.cache_age_hours

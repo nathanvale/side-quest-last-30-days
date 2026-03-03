@@ -113,7 +113,11 @@ function renderRateLimitBlock(
 	const lines: string[] = []
 	lines.push(`**${source}_rate_limit_type:** ${type}`)
 	if (errorCode) {
-		const sanitizedErrorCode = errorCode.replace(/[\n\r\t]/g, ' ').slice(0, 100)
+		const sanitizedErrorCode = errorCode
+			.replace(/\p{Cc}/gu, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.slice(0, 100)
 		lines.push(`**${source}_rate_limit_error_code:** ${sanitizedErrorCode}`)
 	}
 	const resetStr = formatResetTime(resetMs)
