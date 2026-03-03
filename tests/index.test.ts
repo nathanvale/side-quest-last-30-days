@@ -253,6 +253,60 @@ describe('schema', () => {
 		})
 		expect(report.days).toBe(14)
 	})
+
+	test('reportToDict includes rate-limit fields when set, omits when null', () => {
+		const report = createReport('test', '2025-01-01', '2025-01-31', 'both')
+		report.reddit_rate_limit_type = 'transient'
+		report.reddit_rate_limit_error_code = 'rate_limit_exceeded'
+		report.reddit_rate_limit_reset_ms = 45000
+		report.reddit_rate_limit_retry_after_ms = 3000
+		report.reddit_rate_limit_retries_attempted = 5
+		report.reddit_used_stale_cache = true
+		report.reddit_cache_age_hours = 1.25
+		// x fields left at defaults (null/false)
+		const dict = reportToDict(report)
+		expect(dict.reddit_rate_limit_type).toBe('transient')
+		expect(dict.reddit_rate_limit_error_code).toBe('rate_limit_exceeded')
+		expect(dict.reddit_rate_limit_reset_ms).toBe(45000)
+		expect(dict.reddit_rate_limit_retry_after_ms).toBe(3000)
+		expect(dict.reddit_rate_limit_retries_attempted).toBe(5)
+		expect(dict.reddit_used_stale_cache).toBe(true)
+		expect(dict.reddit_cache_age_hours).toBe(1.25)
+		// x fields should be absent (conditional inclusion)
+		expect(dict.x_rate_limit_type).toBeUndefined()
+		expect(dict.x_rate_limit_error_code).toBeUndefined()
+		expect(dict.x_rate_limit_reset_ms).toBeUndefined()
+		expect(dict.x_rate_limit_retry_after_ms).toBeUndefined()
+		expect(dict.x_rate_limit_retries_attempted).toBeUndefined()
+		expect(dict.x_used_stale_cache).toBeUndefined()
+		expect(dict.x_cache_age_hours).toBeUndefined()
+	})
+
+	test('reportFromDict defaults missing rate-limit fields for backward compat', () => {
+		const report = reportFromDict({
+			topic: 'old-report',
+			range: { from: '2025-01-01', to: '2025-01-31' },
+			generated_at: '2025-01-31T00:00:00.000Z',
+			mode: 'both',
+			reddit: [],
+			x: [],
+			web: [],
+		})
+		expect(report.reddit_rate_limit_type).toBeNull()
+		expect(report.reddit_rate_limit_error_code).toBeNull()
+		expect(report.reddit_rate_limit_reset_ms).toBeNull()
+		expect(report.reddit_rate_limit_retry_after_ms).toBeNull()
+		expect(report.reddit_rate_limit_retries_attempted).toBeNull()
+		expect(report.reddit_used_stale_cache).toBe(false)
+		expect(report.reddit_cache_age_hours).toBeNull()
+		expect(report.x_rate_limit_type).toBeNull()
+		expect(report.x_rate_limit_error_code).toBeNull()
+		expect(report.x_rate_limit_reset_ms).toBeNull()
+		expect(report.x_rate_limit_retry_after_ms).toBeNull()
+		expect(report.x_rate_limit_retries_attempted).toBeNull()
+		expect(report.x_used_stale_cache).toBe(false)
+		expect(report.x_cache_age_hours).toBeNull()
+	})
 })
 
 // ---------------------------------------------------------------------------
@@ -311,6 +365,62 @@ describe('render', () => {
 	test('getContextPath uses outdir when provided', () => {
 		const path = getContextPath('/tmp/custom-outdir')
 		expect(path).toBe('/tmp/custom-outdir/wots.context.md')
+	})
+
+	test('renderCompact shows structured rate-limit diagnostics', () => {
+		const report = createReport('testing', '2025-01-01', '2025-01-31', 'both')
+		report.reddit_error = 'Rate limited after 5 retries'
+		report.reddit_rate_limit_type = 'transient'
+		report.reddit_rate_limit_error_code = 'rate_limit_exceeded'
+		report.reddit_rate_limit_reset_ms = 45000
+		report.reddit_rate_limit_retry_after_ms = 3000
+		report.reddit_rate_limit_retries_attempted = 5
+		const output = renderCompact(report)
+		expect(output).toContain('**reddit_rate_limit_type:** transient')
+		expect(output).toContain('**reddit_rate_limit_error_code:** rate_limit_exceeded')
+		expect(output).toContain('**reddit_rate_limit_reset:** 45s')
+		expect(output).toContain('**reddit_rate_limit_retry_after:** 3s')
+		expect(output).toContain('**reddit_rate_limit_retries_attempted:** 5')
+		expect(output).not.toContain('**ERROR:**')
+	})
+
+	test('renderCompact shows stale cache fallback info', () => {
+		const report = createReport('testing', '2025-01-01', '2025-01-31', 'both')
+		report.x_error = 'Rate limited after 3 retries'
+		report.x_rate_limit_type = 'transient'
+		report.x_used_stale_cache = true
+		report.x_cache_age_hours = 2.5
+		const output = renderCompact(report)
+		expect(output).toContain('**x_fallback:** stale_cache (age: 2.5h)')
+	})
+
+	test('renderCompact uses source-specific cache age and shows 0.0h', () => {
+		const report = createReport('testing', '2025-01-01', '2025-01-31', 'both')
+		report.reddit_error = 'Rate limited after 2 retries'
+		report.reddit_rate_limit_type = 'transient'
+		report.reddit_used_stale_cache = true
+		report.reddit_cache_age_hours = 0
+		report.cache_age_hours = 9.9
+		const output = renderCompact(report)
+		expect(output).toContain('**reddit_fallback:** stale_cache (age: 0.0h)')
+		expect(output).not.toContain('age: 9.9h')
+	})
+
+	test('renderCompact preserves plain ERROR for non-rate-limit errors', () => {
+		const report = createReport('testing', '2025-01-01', '2025-01-31', 'both')
+		report.reddit_error = 'API error: connection timeout'
+		const output = renderCompact(report)
+		expect(output).toContain('**ERROR:** API error: connection timeout')
+		expect(output).not.toContain('rate_limited')
+	})
+
+	test('renderCompact sanitizes rate-limit error code control chars', () => {
+		const report = createReport('testing', '2025-01-01', '2025-01-31', 'both')
+		report.reddit_error = 'Rate limited after 1 retries'
+		report.reddit_rate_limit_type = 'transient'
+		report.reddit_rate_limit_error_code = 'bad\ncode\tvalue'
+		const output = renderCompact(report)
+		expect(output).toContain('**reddit_rate_limit_error_code:** bad code value')
 	})
 })
 
@@ -1117,6 +1227,26 @@ describe('cli', () => {
 		expect(result.exitCode).toBe(0)
 		const output = JSON.parse(new TextDecoder().decode(result.stdout)) as Record<string, unknown>
 		expect(output.youtube).toBeUndefined()
+	})
+
+	test('no rate-limit fields in mock JSON output (happy path)', () => {
+		const result = runCli(['test topic', '--mock', '--emit=json'])
+		expect(result.exitCode).toBe(0)
+		const output = JSON.parse(new TextDecoder().decode(result.stdout)) as Record<string, unknown>
+		expect(output.reddit_rate_limit_type).toBeUndefined()
+		expect(output.reddit_rate_limit_error_code).toBeUndefined()
+		expect(output.reddit_rate_limit_reset_ms).toBeUndefined()
+		expect(output.reddit_rate_limit_retry_after_ms).toBeUndefined()
+		expect(output.reddit_rate_limit_retries_attempted).toBeUndefined()
+		expect(output.reddit_used_stale_cache).toBeUndefined()
+		expect(output.reddit_cache_age_hours).toBeUndefined()
+		expect(output.x_rate_limit_type).toBeUndefined()
+		expect(output.x_rate_limit_error_code).toBeUndefined()
+		expect(output.x_rate_limit_reset_ms).toBeUndefined()
+		expect(output.x_rate_limit_retry_after_ms).toBeUndefined()
+		expect(output.x_rate_limit_retries_attempted).toBeUndefined()
+		expect(output.x_used_stale_cache).toBeUndefined()
+		expect(output.x_cache_age_hours).toBeUndefined()
 	})
 
 	test('--quick + --deep exits with EXIT_CONFLICT', () => {

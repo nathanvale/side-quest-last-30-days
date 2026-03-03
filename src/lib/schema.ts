@@ -1,5 +1,26 @@
 /** Data schemas for wots CLI. */
 
+const VALID_RATE_LIMIT_TYPES = new Set(['transient', 'quota'])
+
+/** Validate rate-limit type is 'transient' | 'quota' | null. */
+function validRateLimitType(value: unknown): 'transient' | 'quota' | null {
+	return typeof value === 'string' && VALID_RATE_LIMIT_TYPES.has(value)
+		? (value as 'transient' | 'quota')
+		: null
+}
+
+/** Validate a non-negative finite number, or return null. */
+function safeNonNegNum(value: unknown): number | null {
+	if (typeof value !== 'number') return null
+	if (!Number.isFinite(value) || value < 0) return null
+	return value
+}
+
+/** Coerce to boolean, defaulting to false. */
+function safeBool(value: unknown): boolean {
+	return value === true
+}
+
 /** Engagement metrics. */
 export interface Engagement {
 	// Reddit fields
@@ -125,6 +146,20 @@ export interface Report {
 	x_error: string | null
 	web_error: string | null
 	youtube_error: string | null
+	reddit_rate_limit_type: 'transient' | 'quota' | null
+	reddit_rate_limit_error_code: string | null
+	reddit_rate_limit_reset_ms: number | null
+	reddit_rate_limit_retry_after_ms: number | null
+	reddit_rate_limit_retries_attempted: number | null
+	reddit_used_stale_cache: boolean
+	reddit_cache_age_hours: number | null
+	x_rate_limit_type: 'transient' | 'quota' | null
+	x_rate_limit_error_code: string | null
+	x_rate_limit_reset_ms: number | null
+	x_rate_limit_retry_after_ms: number | null
+	x_rate_limit_retries_attempted: number | null
+	x_used_stale_cache: boolean
+	x_cache_age_hours: number | null
 	from_cache: boolean
 	cache_age_hours: number | null
 }
@@ -174,6 +209,47 @@ export function reportToDict(report: Report): Record<string, unknown> {
 	if (report.x_error) d.x_error = report.x_error
 	if (report.web_error) d.web_error = report.web_error
 	if (report.youtube_error) d.youtube_error = report.youtube_error
+	const hasRedditDiagnostics =
+		report.reddit_rate_limit_type != null ||
+		report.reddit_rate_limit_error_code != null ||
+		report.reddit_rate_limit_reset_ms != null ||
+		report.reddit_rate_limit_retry_after_ms != null ||
+		report.reddit_rate_limit_retries_attempted != null
+	const hasXDiagnostics =
+		report.x_rate_limit_type != null ||
+		report.x_rate_limit_error_code != null ||
+		report.x_rate_limit_reset_ms != null ||
+		report.x_rate_limit_retry_after_ms != null ||
+		report.x_rate_limit_retries_attempted != null
+
+	if (report.reddit_rate_limit_type)
+		d.reddit_rate_limit_type = report.reddit_rate_limit_type
+	if (report.reddit_rate_limit_error_code)
+		d.reddit_rate_limit_error_code = report.reddit_rate_limit_error_code
+	if (report.reddit_rate_limit_reset_ms != null)
+		d.reddit_rate_limit_reset_ms = report.reddit_rate_limit_reset_ms
+	if (report.reddit_rate_limit_retry_after_ms != null)
+		d.reddit_rate_limit_retry_after_ms = report.reddit_rate_limit_retry_after_ms
+	if (report.reddit_rate_limit_retries_attempted != null)
+		d.reddit_rate_limit_retries_attempted =
+			report.reddit_rate_limit_retries_attempted
+	if (hasRedditDiagnostics || report.reddit_used_stale_cache)
+		d.reddit_used_stale_cache = report.reddit_used_stale_cache
+	if (report.reddit_used_stale_cache && report.reddit_cache_age_hours != null)
+		d.reddit_cache_age_hours = report.reddit_cache_age_hours
+	if (report.x_rate_limit_type) d.x_rate_limit_type = report.x_rate_limit_type
+	if (report.x_rate_limit_error_code)
+		d.x_rate_limit_error_code = report.x_rate_limit_error_code
+	if (report.x_rate_limit_reset_ms != null)
+		d.x_rate_limit_reset_ms = report.x_rate_limit_reset_ms
+	if (report.x_rate_limit_retry_after_ms != null)
+		d.x_rate_limit_retry_after_ms = report.x_rate_limit_retry_after_ms
+	if (report.x_rate_limit_retries_attempted != null)
+		d.x_rate_limit_retries_attempted = report.x_rate_limit_retries_attempted
+	if (hasXDiagnostics || report.x_used_stale_cache)
+		d.x_used_stale_cache = report.x_used_stale_cache
+	if (report.x_used_stale_cache && report.x_cache_age_hours != null)
+		d.x_cache_age_hours = report.x_cache_age_hours
 	if (report.from_cache) d.from_cache = report.from_cache
 	if (report.cache_age_hours != null) d.cache_age_hours = report.cache_age_hours
 	return d
@@ -304,6 +380,20 @@ export function createReport(
 		x_error: null,
 		web_error: null,
 		youtube_error: null,
+		reddit_rate_limit_type: null,
+		reddit_rate_limit_error_code: null,
+		reddit_rate_limit_reset_ms: null,
+		reddit_rate_limit_retry_after_ms: null,
+		reddit_rate_limit_retries_attempted: null,
+		reddit_used_stale_cache: false,
+		reddit_cache_age_hours: null,
+		x_rate_limit_type: null,
+		x_rate_limit_error_code: null,
+		x_rate_limit_reset_ms: null,
+		x_rate_limit_retry_after_ms: null,
+		x_rate_limit_retries_attempted: null,
+		x_used_stale_cache: false,
+		x_cache_age_hours: null,
 		from_cache: false,
 		cache_age_hours: null,
 	}
@@ -418,7 +508,31 @@ export function reportFromDict(data: Record<string, unknown>): Report {
 		x_error: (data.x_error as string | null) ?? null,
 		web_error: (data.web_error as string | null) ?? null,
 		youtube_error: (data.youtube_error as string | null) ?? null,
-		from_cache: (data.from_cache as boolean) ?? false,
-		cache_age_hours: (data.cache_age_hours as number | null) ?? null,
+		reddit_rate_limit_type: validRateLimitType(data.reddit_rate_limit_type),
+		reddit_rate_limit_error_code:
+			(data.reddit_rate_limit_error_code as string | null) ?? null,
+		reddit_rate_limit_reset_ms: safeNonNegNum(data.reddit_rate_limit_reset_ms),
+		reddit_rate_limit_retry_after_ms: safeNonNegNum(
+			data.reddit_rate_limit_retry_after_ms,
+		),
+		reddit_rate_limit_retries_attempted: safeNonNegNum(
+			data.reddit_rate_limit_retries_attempted,
+		),
+		reddit_used_stale_cache: safeBool(data.reddit_used_stale_cache),
+		reddit_cache_age_hours: safeNonNegNum(data.reddit_cache_age_hours),
+		x_rate_limit_type: validRateLimitType(data.x_rate_limit_type),
+		x_rate_limit_error_code:
+			(data.x_rate_limit_error_code as string | null) ?? null,
+		x_rate_limit_reset_ms: safeNonNegNum(data.x_rate_limit_reset_ms),
+		x_rate_limit_retry_after_ms: safeNonNegNum(
+			data.x_rate_limit_retry_after_ms,
+		),
+		x_rate_limit_retries_attempted: safeNonNegNum(
+			data.x_rate_limit_retries_attempted,
+		),
+		x_used_stale_cache: safeBool(data.x_used_stale_cache),
+		x_cache_age_hours: safeNonNegNum(data.x_cache_age_hours),
+		from_cache: safeBool(data.from_cache),
+		cache_age_hours: safeNonNegNum(data.cache_age_hours),
 	}
 }

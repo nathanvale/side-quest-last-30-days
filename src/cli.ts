@@ -171,6 +171,26 @@ interface SearchTaskResult {
 	cacheAgeHours: number | null
 	rateLimited: boolean
 	usedStaleCache: boolean
+	rateLimitType: 'transient' | 'quota' | null
+	rateLimitErrorCode: string | null
+	rateLimitResetMs: number | null
+	rateLimitRetryAfterMs: number | null
+	rateLimitRetries: number | null
+}
+
+const NO_RATE_LIMIT: Pick<
+	SearchTaskResult,
+	| 'rateLimitType'
+	| 'rateLimitErrorCode'
+	| 'rateLimitResetMs'
+	| 'rateLimitRetryAfterMs'
+	| 'rateLimitRetries'
+> = {
+	rateLimitType: null,
+	rateLimitErrorCode: null,
+	rateLimitResetMs: null,
+	rateLimitRetryAfterMs: null,
+	rateLimitRetries: null,
 }
 
 interface CachedSearchPayload {
@@ -229,6 +249,7 @@ async function searchRedditTask(
 				cacheAgeHours: ageHours,
 				rateLimited: false,
 				usedStaleCache: false,
+				...NO_RATE_LIMIT,
 			}
 		}
 	}
@@ -251,6 +272,7 @@ async function searchRedditTask(
 					cacheAgeHours: ageHours,
 					rateLimited: false,
 					usedStaleCache: false,
+					...NO_RATE_LIMIT,
 				}
 			}
 		}
@@ -259,6 +281,11 @@ async function searchRedditTask(
 	let raw: Record<string, unknown> | null = null
 	let error: string | null = null
 	let rateLimited = false
+	let rateLimitType: 'transient' | 'quota' | null = null
+	let rateLimitErrorCode: string | null = null
+	let rateLimitResetMs: number | null = null
+	let rateLimitRetryAfterMs: number | null = null
+	let rateLimitRetries: number | null = null
 
 	try {
 		if (mock) {
@@ -277,6 +304,11 @@ async function searchRedditTask(
 		raw = { error: String(e) }
 		if (e instanceof RateLimitError) {
 			rateLimited = true
+			rateLimitType = e.retryable ? 'transient' : 'quota'
+			rateLimitErrorCode = e.error_code
+			rateLimitResetMs = e.ratelimit_reset_ms
+			rateLimitRetryAfterMs = e.retry_after_ms
+			rateLimitRetries = e.retries_attempted
 			error = e.retryable
 				? `Rate limited after ${e.retries_attempted} retries`
 				: 'OpenAI quota/billing limit reached (non-retryable 429)'
@@ -295,6 +327,11 @@ async function searchRedditTask(
 						cacheAgeHours: staleAge,
 						rateLimited: true,
 						usedStaleCache: true,
+						rateLimitType,
+						rateLimitErrorCode,
+						rateLimitResetMs,
+						rateLimitRetryAfterMs,
+						rateLimitRetries,
 					}
 				}
 			}
@@ -379,6 +416,11 @@ async function searchRedditTask(
 		cacheAgeHours: null,
 		rateLimited,
 		usedStaleCache: false,
+		rateLimitType,
+		rateLimitErrorCode,
+		rateLimitResetMs,
+		rateLimitRetryAfterMs,
+		rateLimitRetries,
 	}
 }
 
@@ -417,6 +459,7 @@ async function searchXTask(
 				cacheAgeHours: ageHours,
 				rateLimited: false,
 				usedStaleCache: false,
+				...NO_RATE_LIMIT,
 			}
 		}
 	}
@@ -439,6 +482,7 @@ async function searchXTask(
 					cacheAgeHours: ageHours,
 					rateLimited: false,
 					usedStaleCache: false,
+					...NO_RATE_LIMIT,
 				}
 			}
 		}
@@ -447,6 +491,11 @@ async function searchXTask(
 	let raw: Record<string, unknown> | null = null
 	let error: string | null = null
 	let rateLimited = false
+	let rateLimitType: 'transient' | 'quota' | null = null
+	let rateLimitErrorCode: string | null = null
+	let rateLimitResetMs: number | null = null
+	let rateLimitRetryAfterMs: number | null = null
+	let rateLimitRetries: number | null = null
 
 	try {
 		if (mock) {
@@ -465,6 +514,11 @@ async function searchXTask(
 		raw = { error: String(e) }
 		if (e instanceof RateLimitError) {
 			rateLimited = true
+			rateLimitType = e.retryable ? 'transient' : 'quota'
+			rateLimitErrorCode = e.error_code
+			rateLimitResetMs = e.ratelimit_reset_ms
+			rateLimitRetryAfterMs = e.retry_after_ms
+			rateLimitRetries = e.retries_attempted
 			error = e.retryable
 				? `Rate limited after ${e.retries_attempted} retries`
 				: 'xAI quota/billing limit reached (non-retryable 429)'
@@ -483,6 +537,11 @@ async function searchXTask(
 						cacheAgeHours: staleAge,
 						rateLimited: true,
 						usedStaleCache: true,
+						rateLimitType,
+						rateLimitErrorCode,
+						rateLimitResetMs,
+						rateLimitRetryAfterMs,
+						rateLimitRetries,
 					}
 				}
 			}
@@ -508,6 +567,11 @@ async function searchXTask(
 		cacheAgeHours: null,
 		rateLimited,
 		usedStaleCache: false,
+		rateLimitType,
+		rateLimitErrorCode,
+		rateLimitResetMs,
+		rateLimitRetryAfterMs,
+		rateLimitRetries,
 	}
 }
 
@@ -918,6 +982,10 @@ async function main() {
 	let xRateLimited = false
 	let redditUsedStaleCache = false
 	let xUsedStaleCache = false
+	const taskResults: {
+		reddit: SearchTaskResult | null
+		x: SearchTaskResult | null
+	} = { reddit: null, x: null }
 
 	const promises: Promise<void>[] = []
 
@@ -935,6 +1003,7 @@ async function main() {
 				args.mock,
 				cacheOpts,
 			).then((result) => {
+				taskResults.reddit = result
 				redditItems = result.items
 				rawOpenai = result.raw
 				redditError = result.error
@@ -973,6 +1042,7 @@ async function main() {
 				args.mock,
 				cacheOpts,
 			).then((result) => {
+				taskResults.x = result
 				xItems = result.items
 				rawXai = result.raw
 				xError = result.error
@@ -1185,6 +1255,26 @@ async function main() {
 	report.reddit_error = redditError
 	report.x_error = xError
 	report.youtube_error = youtubeError
+	report.reddit_rate_limit_type = taskResults.reddit?.rateLimitType ?? null
+	report.reddit_rate_limit_error_code =
+		taskResults.reddit?.rateLimitErrorCode ?? null
+	report.reddit_rate_limit_reset_ms =
+		taskResults.reddit?.rateLimitResetMs ?? null
+	report.reddit_rate_limit_retry_after_ms =
+		taskResults.reddit?.rateLimitRetryAfterMs ?? null
+	report.reddit_rate_limit_retries_attempted =
+		taskResults.reddit?.rateLimitRetries ?? null
+	report.reddit_used_stale_cache = taskResults.reddit?.usedStaleCache ?? false
+	report.reddit_cache_age_hours = taskResults.reddit?.cacheAgeHours ?? null
+	report.x_rate_limit_type = taskResults.x?.rateLimitType ?? null
+	report.x_rate_limit_error_code = taskResults.x?.rateLimitErrorCode ?? null
+	report.x_rate_limit_reset_ms = taskResults.x?.rateLimitResetMs ?? null
+	report.x_rate_limit_retry_after_ms =
+		taskResults.x?.rateLimitRetryAfterMs ?? null
+	report.x_rate_limit_retries_attempted =
+		taskResults.x?.rateLimitRetries ?? null
+	report.x_used_stale_cache = taskResults.x?.usedStaleCache ?? false
+	report.x_cache_age_hours = taskResults.x?.cacheAgeHours ?? null
 	report.from_cache = anyFromCache
 	report.cache_age_hours = maxCacheAge
 	report.context_snippet_md = renderContextSnippet(report)
