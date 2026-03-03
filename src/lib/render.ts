@@ -43,37 +43,6 @@ function assessDataFreshness(report: Report) {
 	}
 }
 
-function summarizeFreshness(report: Report) {
-	const items = [
-		...report.reddit,
-		...report.x,
-		...report.web,
-		...report.youtube,
-	]
-	let dated = 0
-	let fresh72h = 0
-	let fresh7d = 0
-
-	for (const item of items) {
-		const age = daysAgo(item.date)
-		if (age == null) continue
-		dated += 1
-		if (age <= 3) fresh72h += 1
-		if (age <= 7) fresh7d += 1
-	}
-
-	const pct = (value: number) =>
-		dated > 0 ? Math.round((value / dated) * 100) : 0
-
-	return {
-		dated,
-		fresh72h,
-		fresh7d,
-		fresh72hPct: pct(fresh72h),
-		fresh7dPct: pct(fresh7d),
-	}
-}
-
 function recencyBadge(date: string | null): string {
 	const age = daysAgo(date)
 	if (age == null) return ''
