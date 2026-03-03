@@ -128,19 +128,30 @@ function renderRateLimitBlock(
 		source === 'reddit'
 			? report.reddit_rate_limit_retry_after_ms
 			: report.x_rate_limit_retry_after_ms
+	const retriesAttempted =
+		source === 'reddit'
+			? report.reddit_rate_limit_retries_attempted
+			: report.x_rate_limit_retries_attempted
 	const usedStale =
 		source === 'reddit'
 			? report.reddit_used_stale_cache
 			: report.x_used_stale_cache
 
 	const lines: string[] = []
-	lines.push(`**${source}_status:** rate_limited`)
 	lines.push(`**${source}_rate_limit_type:** ${type}`)
-	if (errorCode) lines.push(`**${source}_error_code:** ${errorCode}`)
+	if (errorCode) {
+		const sanitizedErrorCode = errorCode.replace(/[\n\r\t]/g, ' ').slice(0, 100)
+		lines.push(`**${source}_rate_limit_error_code:** ${sanitizedErrorCode}`)
+	}
 	const resetStr = formatResetTime(resetMs)
 	if (resetStr) lines.push(`**${source}_rate_limit_reset:** ${resetStr}`)
 	const retryAfterStr = formatResetTime(retryAfterMs)
-	if (retryAfterStr) lines.push(`**${source}_retry_after:** ${retryAfterStr}`)
+	if (retryAfterStr)
+		lines.push(`**${source}_rate_limit_retry_after:** ${retryAfterStr}`)
+	if (retriesAttempted != null)
+		lines.push(
+			`**${source}_rate_limit_retries_attempted:** ${retriesAttempted}`,
+		)
 	if (usedStale) {
 		const ageStr = report.cache_age_hours
 			? `age: ${report.cache_age_hours.toFixed(1)}h`

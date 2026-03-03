@@ -1262,12 +1262,16 @@ async function main() {
 		taskResults.reddit?.rateLimitResetMs ?? null
 	report.reddit_rate_limit_retry_after_ms =
 		taskResults.reddit?.rateLimitRetryAfterMs ?? null
+	report.reddit_rate_limit_retries_attempted =
+		taskResults.reddit?.rateLimitRetries ?? null
 	report.reddit_used_stale_cache = taskResults.reddit?.usedStaleCache ?? false
 	report.x_rate_limit_type = taskResults.x?.rateLimitType ?? null
 	report.x_rate_limit_error_code = taskResults.x?.rateLimitErrorCode ?? null
 	report.x_rate_limit_reset_ms = taskResults.x?.rateLimitResetMs ?? null
 	report.x_rate_limit_retry_after_ms =
 		taskResults.x?.rateLimitRetryAfterMs ?? null
+	report.x_rate_limit_retries_attempted =
+		taskResults.x?.rateLimitRetries ?? null
 	report.x_used_stale_cache = taskResults.x?.usedStaleCache ?? false
 	report.from_cache = anyFromCache
 	report.cache_age_hours = maxCacheAge
